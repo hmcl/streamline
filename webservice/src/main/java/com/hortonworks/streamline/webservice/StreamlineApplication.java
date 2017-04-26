@@ -111,6 +111,7 @@ public class StreamlineApplication extends Application<StreamlineConfiguration> 
 
     }
 
+    @SuppressWarnings("unchecked")
     private void addServletFilters(StreamlineConfiguration configuration, Environment environment) {
         List<ServletFilterConfiguration> servletFilterConfigurations = configuration.getServletFilters();
         if (servletFilterConfigurations != null && !servletFilterConfigurations.isEmpty()) {
