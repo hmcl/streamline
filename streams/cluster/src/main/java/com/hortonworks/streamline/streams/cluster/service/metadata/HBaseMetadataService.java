@@ -18,7 +18,13 @@ package com.hortonworks.streamline.streams.cluster.service.metadata;
 
 import com.google.common.collect.ImmutableList;
 
+import com.hortonworks.streamline.streams.catalog.exception.ServiceConfigurationNotFoundException;
+import com.hortonworks.streamline.streams.catalog.exception.ServiceNotFoundException;
+import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
 import com.hortonworks.streamline.streams.cluster.service.EnvironmentService;
+import com.hortonworks.streamline.streams.cluster.service.metadata.common.OverrideHadoopConfiguration;
+import com.hortonworks.streamline.streams.cluster.service.metadata.common.Tables;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
@@ -28,16 +34,16 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
-import com.hortonworks.streamline.streams.catalog.exception.ServiceConfigurationNotFoundException;
-import com.hortonworks.streamline.streams.catalog.exception.ServiceNotFoundException;
-import com.hortonworks.streamline.streams.cluster.service.metadata.common.OverrideHadoopConfiguration;
-import com.hortonworks.streamline.streams.cluster.service.metadata.common.Tables;
-import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
+import org.apache.hadoop.hbase.security.User;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
+import java.security.AccessController;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import javax.security.auth.Subject;
 
 /**
  * Provides HBase databases tables metadata information using {@link org.apache.hadoop.hbase.client.HBaseAdmin}
@@ -73,8 +79,12 @@ public class HBaseMetadataService implements AutoCloseable {
 
         return new HBaseMetadataService(ConnectionFactory.createConnection(
                 OverrideHadoopConfiguration.override(environmentService, clusterId, ServiceConfigurations.HBASE,
-                        STREAMS_JSON_SCHEMA_CONFIG_HBASE_SITE, hbaseConfig))
+                        STREAMS_JSON_SCHEMA_CONFIG_HBASE_SITE, hbaseConfig), User.create(UserGroupInformation.getUGIFromSubject(getSubject())))
                 .getAdmin());
+    }
+
+    private static Subject getSubject() {
+        return Subject.getSubject(AccessController.getContext());
     }
 
     /**

@@ -21,11 +21,16 @@ import com.hortonworks.streamline.streams.catalog.Cluster;
 import com.hortonworks.streamline.streams.catalog.exception.EntityNotFoundException;
 import com.hortonworks.streamline.streams.cluster.service.EnvironmentService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.HBaseMetadataService;
+import com.hortonworks.streamline.streams.cluster.service.metadata.common.Tables;
 import com.hortonworks.streamline.streams.security.SecurityUtil;
 import com.hortonworks.streamline.streams.security.StreamlineAuthorizer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.security.PrivilegedExceptionAction;
+
+import javax.security.auth.Subject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -44,10 +49,12 @@ public class HBaseMetadataResource {
     private static final Logger LOG = LoggerFactory.getLogger(HBaseMetadataResource.class);
     private final StreamlineAuthorizer authorizer;
     private final EnvironmentService environmentService;
+    private Subject subject;
 
-    public HBaseMetadataResource(StreamlineAuthorizer authorizer, EnvironmentService environmentService) {
+    public HBaseMetadataResource(StreamlineAuthorizer authorizer, EnvironmentService environmentService, Subject subject) {
         this.authorizer = authorizer;
         this.environmentService = environmentService;
+        this.subject = subject;
     }
 
     @GET
@@ -56,8 +63,10 @@ public class HBaseMetadataResource {
     public Response getNamespacesByClusterId(@PathParam("clusterId") Long clusterId,
                                              @Context SecurityContext securityContext) throws Exception {
         SecurityUtil.checkPermissions(authorizer, securityContext, Cluster.NAMESPACE, clusterId, READ);
-        try (HBaseMetadataService hbaseMetadataService = HBaseMetadataService.newInstance(environmentService, clusterId)) {
+        try (HBaseMetadataService hbaseMetadataService = Subject.doAs(subject, (PrivilegedExceptionAction<HBaseMetadataService>)()
+                -> HBaseMetadataService.newInstance(environmentService, clusterId))) {
             return WSUtils.respondEntity(hbaseMetadataService.getHBaseNamespaces(), OK);
+//            return WSUtils.respondEntity(Subject.doAs(subject, (PrivilegedExceptionAction<HBaseMetadataService.Namespaces>) hbaseMetadataService::getHBaseNamespaces), OK);
         } catch (EntityNotFoundException ex) {
             throw com.hortonworks.streamline.common.exception.service.exception.request.EntityNotFoundException.byId(ex.getMessage());
         }
@@ -72,7 +81,7 @@ public class HBaseMetadataResource {
                                          @Context SecurityContext securityContext) throws Exception {
         SecurityUtil.checkPermissions(authorizer, securityContext, Cluster.NAMESPACE, clusterId, READ);
         try (HBaseMetadataService hbaseMetadataService = HBaseMetadataService.newInstance(environmentService, clusterId)) {
-            return WSUtils.respondEntity(hbaseMetadataService.getHBaseTables(), OK);
+            return WSUtils.respondEntity(Subject.doAs(subject, (PrivilegedExceptionAction<Tables>) hbaseMetadataService::getHBaseTables), OK);
         } catch (EntityNotFoundException ex) {
             throw com.hortonworks.streamline.common.exception.service.exception.request.EntityNotFoundException.byId(ex.getMessage());
         }
@@ -87,7 +96,7 @@ public class HBaseMetadataResource {
                                                   @Context SecurityContext securityContext) throws Exception {
         SecurityUtil.checkPermissions(authorizer, securityContext, Cluster.NAMESPACE, clusterId, READ);
         try (HBaseMetadataService hbaseMetadataService = HBaseMetadataService.newInstance(environmentService, clusterId)) {
-            return WSUtils.respondEntity(hbaseMetadataService.getHBaseTables(namespace), OK);
+            return WSUtils.respondEntity(Subject.doAs(subject, (PrivilegedExceptionAction<Tables>)() -> hbaseMetadataService.getHBaseTables(namespace)), OK);
         } catch (EntityNotFoundException ex) {
             throw com.hortonworks.streamline.common.exception.service.exception.request.EntityNotFoundException.byId(ex.getMessage());
         }
