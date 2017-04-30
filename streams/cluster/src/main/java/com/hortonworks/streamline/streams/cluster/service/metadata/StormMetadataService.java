@@ -138,7 +138,7 @@ public class StormMetadataService {
             HostPort hostPort = getHostPort();
             String url = "http://" + hostPort.toString() + (urlRelativePath.startsWith("/") ? urlRelativePath : "/" + urlRelativePath);
             if (securityContext.isSecure()) {
-                url += "?" + STORM_REST_API_DO_AS_USER_QUERY_PARAM + "=" + securityContext.getUserPrincipal();
+                url += "?" + STORM_REST_API_DO_AS_USER_QUERY_PARAM + "=" + securityContext.getUserPrincipal().getName();
                 //TODO - Do we need to extract the user part of the principal with format user@REALM ? Or do we pass the whole principal ?
             }
             return url;
