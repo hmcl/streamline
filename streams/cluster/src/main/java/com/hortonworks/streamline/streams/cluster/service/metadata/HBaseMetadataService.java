@@ -77,9 +77,13 @@ public class HBaseMetadataService implements AutoCloseable {
     public static HBaseMetadataService newInstance(Configuration hbaseConfig, EnvironmentService environmentService, Long clusterId)
             throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
 
+        final Configuration config = OverrideHadoopConfiguration.override(
+                environmentService, clusterId, ServiceConfigurations.HBASE,
+                STREAMS_JSON_SCHEMA_CONFIG_HBASE_SITE, hbaseConfig);
+
+        UserGroupInformation.setConfiguration(config);
         return new HBaseMetadataService(ConnectionFactory.createConnection(
-                OverrideHadoopConfiguration.override(environmentService, clusterId, ServiceConfigurations.HBASE,
-                        STREAMS_JSON_SCHEMA_CONFIG_HBASE_SITE, hbaseConfig), User.create(UserGroupInformation.getUGIFromSubject(getSubject())))
+                config, User.create(UserGroupInformation.getUGIFromSubject(getSubject())))
                 .getAdmin());
     }
 
