@@ -39,6 +39,8 @@ import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
 import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -82,6 +84,7 @@ public class HBaseMetadataService implements AutoCloseable {
                 STREAMS_JSON_SCHEMA_CONFIG_HBASE_SITE, hbaseConfig);
 
         UserGroupInformation.setConfiguration(config);
+
         return new HBaseMetadataService(ConnectionFactory.createConnection(
                 config, User.create(UserGroupInformation.getUGIFromSubject(getSubject())))
                 .getAdmin());
@@ -94,8 +97,9 @@ public class HBaseMetadataService implements AutoCloseable {
     /**
      * @return All tables for all namespaces
      */
-    public Tables getHBaseTables() throws IOException {
-        final TableName[] tableNames = hBaseAdmin.listTableNames();
+    public Tables getHBaseTables() throws IOException, PrivilegedActionException {
+        final TableName[] tableNames = Subject.doAs(getSubject(),
+                (PrivilegedExceptionAction<TableName[]>)() -> hBaseAdmin.listTableNames());
         return Tables.newInstance(tableNames);
     }
 
@@ -103,23 +107,29 @@ public class HBaseMetadataService implements AutoCloseable {
      * @param namespace Namespace for which to get table names
      * @return All tables for the namespace given as parameter
      */
-    public Tables getHBaseTables(String namespace) throws IOException {
-        final TableName[] tableNames = hBaseAdmin.listTableNamesByNamespace(namespace);
+    public Tables getHBaseTables(String namespace) throws IOException, PrivilegedActionException {
+        final TableName[] tableNames = Subject.doAs(getSubject(),
+                (PrivilegedExceptionAction<TableName[]>)() -> hBaseAdmin.listTableNamesByNamespace(namespace));
         return Tables.newInstance(tableNames);
     }
 
     /**
      * @return All namespaces
      */
-    public Namespaces getHBaseNamespaces() throws IOException {
-        return Namespaces.newInstance(hBaseAdmin.listNamespaceDescriptors());
+    public Namespaces getHBaseNamespaces() throws IOException, PrivilegedActionException {
+        return Namespaces.newInstance(Subject.doAs(getSubject(),
+                (PrivilegedExceptionAction<NamespaceDescriptor[]>)() -> hBaseAdmin.listNamespaceDescriptors()));
     }
 
     @Override
     public void close() throws Exception {
-        final Connection connection = hBaseAdmin.getConnection();
-        hBaseAdmin.close();
-        connection.close();
+        Subject.doAs(getSubject(),
+                (PrivilegedExceptionAction<Object>)() -> {
+                    final Connection connection = hBaseAdmin.getConnection();
+                    hBaseAdmin.close();
+                    connection.close();
+                    return null;
+                });
     }
 
     /*

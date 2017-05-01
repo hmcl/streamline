@@ -66,7 +66,6 @@ public class HBaseMetadataResource {
         try (HBaseMetadataService hbaseMetadataService = Subject.doAs(subject, (PrivilegedExceptionAction<HBaseMetadataService>)()
                 -> HBaseMetadataService.newInstance(environmentService, clusterId))) {
             return WSUtils.respondEntity(hbaseMetadataService.getHBaseNamespaces(), OK);
-//            return WSUtils.respondEntity(Subject.doAs(subject, (PrivilegedExceptionAction<HBaseMetadataService.Namespaces>) hbaseMetadataService::getHBaseNamespaces), OK);
         } catch (EntityNotFoundException ex) {
             throw com.hortonworks.streamline.common.exception.service.exception.request.EntityNotFoundException.byId(ex.getMessage());
         }
@@ -101,6 +100,4 @@ public class HBaseMetadataResource {
             throw com.hortonworks.streamline.common.exception.service.exception.request.EntityNotFoundException.byId(ex.getMessage());
         }
     }
-
-
 }
