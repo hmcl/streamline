@@ -21,11 +21,8 @@ import com.hortonworks.streamline.streams.catalog.Cluster;
 import com.hortonworks.streamline.streams.catalog.exception.EntityNotFoundException;
 import com.hortonworks.streamline.streams.cluster.service.EnvironmentService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.HiveMetadataService;
-import com.hortonworks.streamline.streams.cluster.service.metadata.common.Tables;
 import com.hortonworks.streamline.streams.security.SecurityUtil;
 import com.hortonworks.streamline.streams.security.StreamlineAuthorizer;
-
-import java.security.PrivilegedExceptionAction;
 
 import javax.security.auth.Subject;
 import javax.ws.rs.GET;
@@ -60,7 +57,7 @@ public class HiveMetadataResource {
                                             @Context SecurityContext securityContext) throws Exception {
         SecurityUtil.checkPermissions(authorizer, securityContext, Cluster.NAMESPACE, clusterId, READ);
         try(final HiveMetadataService hiveMetadataService = HiveMetadataService.newInstance(environmentService, clusterId)) {
-            return WSUtils.respondEntity(Subject.doAs(subject, (PrivilegedExceptionAction<HiveMetadataService.Databases>) hiveMetadataService::getHiveDatabases), OK);
+            return WSUtils.respondEntity(hiveMetadataService.getHiveDatabases(), OK);
         } catch (EntityNotFoundException ex) {
             throw com.hortonworks.streamline.common.exception.service.exception.request.EntityNotFoundException.byId(ex.getMessage());
         }
@@ -73,7 +70,7 @@ public class HiveMetadataResource {
                                                  @Context SecurityContext securityContext) throws Exception {
         SecurityUtil.checkPermissions(authorizer, securityContext, Cluster.NAMESPACE, clusterId, READ);
         try(final HiveMetadataService hiveMetadataService = HiveMetadataService.newInstance(environmentService, clusterId)) {
-            return WSUtils.respondEntity(Subject.doAs(subject, (PrivilegedExceptionAction<Tables>) () -> hiveMetadataService.getHiveTables(dbName)), OK);
+            return WSUtils.respondEntity(hiveMetadataService.getHiveTables(dbName), OK);
         } catch (EntityNotFoundException ex) {
             throw com.hortonworks.streamline.common.exception.service.exception.request.EntityNotFoundException.byId(ex.getMessage());
         }

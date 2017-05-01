@@ -18,8 +18,13 @@ package com.hortonworks.streamline.streams.cluster.service.metadata;
 import com.google.common.collect.Lists;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
+import com.hortonworks.streamline.streams.catalog.exception.ServiceConfigurationNotFoundException;
+import com.hortonworks.streamline.streams.catalog.exception.ServiceNotFoundException;
+import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
 import com.hortonworks.streamline.streams.cluster.service.EnvironmentService;
+import com.hortonworks.streamline.streams.cluster.service.metadata.common.OverrideHadoopConfiguration;
+import com.hortonworks.streamline.streams.cluster.service.metadata.common.Tables;
+
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -27,19 +32,19 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
-import com.hortonworks.streamline.streams.catalog.exception.ServiceConfigurationNotFoundException;
-import com.hortonworks.streamline.streams.catalog.exception.ServiceNotFoundException;
-import com.hortonworks.streamline.streams.cluster.service.metadata.common.OverrideHadoopConfiguration;
-import com.hortonworks.streamline.streams.cluster.service.metadata.common.Tables;
-import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import javax.security.auth.Subject;
 
 /**
  * Provides Hive databases and database tables metadata information using {@link HiveMetaStoreClient}
@@ -93,20 +98,29 @@ public class HiveMetadataService implements AutoCloseable {
     /**
      * @return The table names of for the database specified in the parameter
      */
-    public Tables getHiveTables(String dbName) throws MetaException {
-        return Tables.newInstance(metaStoreClient.getAllTables(dbName));
+    public Tables getHiveTables(String dbName) throws MetaException, PrivilegedActionException {
+        return Tables.newInstance(Subject.doAs(getSubject(),
+                (PrivilegedExceptionAction<List<String>>) () -> metaStoreClient.getAllTables(dbName)));
     }
 
     /**
      * @return The names of all databases in the MetaStore.
      */
-    public Databases getHiveDatabases() throws MetaException {
-        return Databases.newInstance(metaStoreClient.getAllDatabases());
+    public Databases getHiveDatabases() throws MetaException, PrivilegedActionException {
+        return Databases.newInstance(Subject.doAs(getSubject(),
+                (PrivilegedExceptionAction<List<String>>)() -> metaStoreClient.getAllDatabases()));
     }
 
     @Override
     public void close() throws Exception {
-        metaStoreClient.close();
+        Subject.doAs(getSubject(), (PrivilegedExceptionAction<Object>) () -> {
+            metaStoreClient.close();
+            return null;
+        });
+    }
+
+    private static Subject getSubject() {
+        return Subject.getSubject(AccessController.getContext());
     }
 
     /*
