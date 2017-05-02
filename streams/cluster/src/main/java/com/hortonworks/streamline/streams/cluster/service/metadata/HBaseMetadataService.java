@@ -40,7 +40,6 @@ import org.apache.hadoop.hbase.security.User;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
-import java.security.AccessController;
 import java.security.PrivilegedActionException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -70,44 +69,42 @@ public class HBaseMetadataService implements AutoCloseable {
         this.subject = subject;
     }
 
+    /**
+     * Creates a new instance of {@link HBaseMetadataService} which delegates commands to {@link Admin}, which is instantiated with default {@link       //TODO DOCS
+     * HBaseConfiguration} and {@code hbase-site.xml} config default properties overridden with the values set in hbase-site.xml
+     * specified in cluster imported in the service pool (either manually or using Ambari)"
+     */
     public static HBaseMetadataService newInstance(EnvironmentService environmentService, Long clusterId)
             throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
-        return HBaseMetadataService.newInstance(environmentService, clusterId, null, null);
+
+        return HBaseMetadataService.newInstance(overrideConfig(HBaseConfiguration.create(), environmentService, clusterId));
+    }
+
+    public static HBaseMetadataService newInstance(Configuration hbaseConfig)
+            throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
+        return new HBaseMetadataService(ConnectionFactory.createConnection(hbaseConfig).getAdmin());
     }
 
     /**
-     * Creates a new instance of {@link HBaseMetadataService} which delegates to {@link Admin} instantiated with default {@link
-     * HBaseConfiguration} and {@code hbase-site.xml} config related properties overridden with the values set in the hbase-site
-     * config serialized in "streams json"
+     * Creates a new instance of {@link HBaseMetadataService} which delegates to {@link Admin} instantiated  with the provided       //TODO DOCS
+     * {@link HBaseConfiguration} and {@code hbase-site.xml} config related properties overridden with the values set in the
+     * hbase-site config serialized in "streams json"
      */
     public static HBaseMetadataService newInstance(EnvironmentService environmentService, Long clusterId,
                                                    SecurityContext securityContext, Subject subject)
             throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
 
-        return new HBaseMetadataService(ConnectionFactory
-                .createConnection(overrideConfig(HBaseConfiguration.create(), environmentService, clusterId))
-                .getAdmin(), securityContext, subject);
+        return HBaseMetadataService.newInstance(
+                overrideConfig(HBaseConfiguration.create(), environmentService, clusterId),
+                securityContext, subject);
     }
 
-    public static HBaseMetadataService newInstance(Configuration hbaseConfig, EnvironmentService environmentService, Long clusterId)
-            throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
-        return HBaseMetadataService.newInstance(hbaseConfig, environmentService, clusterId, null, null);
-    }
-
-    /**
-     * Creates a new instance of {@link HBaseMetadataService} which delegates to {@link Admin} instantiated  with the provided
-     * {@link HBaseConfiguration} and {@code hbase-site.xml} config related properties overridden with the values set in the
-     * hbase-site config serialized in "streams json"
-     */
-    public static HBaseMetadataService newInstance(Configuration hbaseConfig, EnvironmentService environmentService,
-            Long clusterId, SecurityContext securityContext, Subject subject)
+    public static HBaseMetadataService newInstance(Configuration hbaseConfig, SecurityContext securityContext, Subject subject)
                 throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
 
-        final Configuration config = overrideConfig(hbaseConfig, environmentService, clusterId);
+        UserGroupInformation.setConfiguration(hbaseConfig);
 
-        UserGroupInformation.setConfiguration(config);
-
-        return new HBaseMetadataService(ConnectionFactory.createConnection(config,
+        return new HBaseMetadataService(ConnectionFactory.createConnection(hbaseConfig,
                     User.create(UserGroupInformation.getUGIFromSubject(subject)))
                 .getAdmin(), securityContext, subject);
     }
@@ -116,10 +113,6 @@ public class HBaseMetadataService implements AutoCloseable {
             throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
         return OverrideHadoopConfiguration.override(environmentService, clusterId,
                 ServiceConfigurations.HBASE, STREAMS_JSON_SCHEMA_CONFIG_HBASE_SITE, hbaseConfig);
-    }
-
-    private static Subject getSubject() {
-        return Subject.getSubject(AccessController.getContext());
     }
 
     /**
@@ -157,7 +150,7 @@ public class HBaseMetadataService implements AutoCloseable {
     }
 
     private <T, E extends Exception> T executeSecure(SupplierException<T, E> action) throws PrivilegedActionException, E {
-        return SecurityUtil.execute(securityContext, action, true); //TODO
+        return SecurityUtil.execute(action, securityContext, subject, true); //TODO
     }
 
     /*

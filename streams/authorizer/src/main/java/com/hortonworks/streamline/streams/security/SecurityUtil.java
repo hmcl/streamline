@@ -99,23 +99,32 @@ public final class SecurityUtil {
     }
 
     /**
-     * Executes the supplied action. If {@code securityContext.isSecure() == true}, it wraps the
-     * action execution with Subject.doAs(subject, action) where subject is returned by {@link SecurityUtil#getSubject}
+     * Executes the supplied action. If {@code securityContext.isSecure() == true}, it wraps the action execution
+     * with Subject.doAs(subject, action) where subject is created for every call by {@link SecurityUtil#getSubject}
      */
-    public static <T, E extends Exception> T execute(SecurityContext securityContext,
-            SupplierException<T, E> action) throws E, PrivilegedActionException {
-        if (securityContext != null && securityContext.isSecure()) {
-            return Subject.doAs(getSubject(), (PrivilegedExceptionAction<T>) action::get);
+    public static <T, E extends Exception> T execute(SupplierException<T, E> action, SecurityContext securityContext)
+            throws E, PrivilegedActionException {
+        return execute(action, securityContext, getSubject());
+    }
+
+    /**
+     * Executes the supplied action. If {@code securityContext.isSecure() == true}, it wraps the
+     * action execution with Subject.doAs(subject, action) with the provided subject
+     */
+    public static <T, E extends Exception> T execute(SupplierException<T, E> action, SecurityContext securityContext, Subject subject)
+            throws E, PrivilegedActionException {
+        if (subject != null && securityContext != null && securityContext.isSecure()) {     //TODO Add logs
+            return Subject.doAs(subject, (PrivilegedExceptionAction<T>) action::get);
         } else {
             return action.get();
         }
     }
 
-    //TODO
-    public static <T, E extends Exception> T execute(SecurityContext securityContext,
-                                                     SupplierException<T, E> action, boolean isSecure) throws E, PrivilegedActionException {
+    //TODO Delete
+    public static <T, E extends Exception> T execute(SupplierException<T, E> action, SecurityContext securityContext,
+                                                     Subject subject, boolean isSecure) throws E, PrivilegedActionException {
         if (isSecure) {
-            return Subject.doAs(getSubject(), (PrivilegedExceptionAction<T>) action::get);
+            return Subject.doAs(subject, (PrivilegedExceptionAction<T>) action::get);
         } else {
             return action.get();
         }
