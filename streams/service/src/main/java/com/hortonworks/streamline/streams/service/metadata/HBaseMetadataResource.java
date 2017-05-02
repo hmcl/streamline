@@ -63,8 +63,8 @@ public class HBaseMetadataResource {
     public Response getNamespacesByClusterId(@PathParam("clusterId") Long clusterId,
                                              @Context SecurityContext securityContext) throws Exception {
         SecurityUtil.checkPermissions(authorizer, securityContext, Cluster.NAMESPACE, clusterId, READ);
-        try (HBaseMetadataService hbaseMetadataService = Subject.doAs(subject, (PrivilegedExceptionAction<HBaseMetadataService>)()
-                -> HBaseMetadataService.newInstance(environmentService, clusterId))) {
+        try (HBaseMetadataService hbaseMetadataService = HBaseMetadataService
+                .newInstance(environmentService, clusterId, securityContext, subject)) {
             return WSUtils.respondEntity(hbaseMetadataService.getHBaseNamespaces(), OK);
         } catch (EntityNotFoundException ex) {
             throw com.hortonworks.streamline.common.exception.service.exception.request.EntityNotFoundException.byId(ex.getMessage());
@@ -79,7 +79,8 @@ public class HBaseMetadataResource {
     public Response getTablesByClusterId(@PathParam("clusterId") Long clusterId,
                                          @Context SecurityContext securityContext) throws Exception {
         SecurityUtil.checkPermissions(authorizer, securityContext, Cluster.NAMESPACE, clusterId, READ);
-        try (HBaseMetadataService hbaseMetadataService = HBaseMetadataService.newInstance(environmentService, clusterId)) {
+        try (HBaseMetadataService hbaseMetadataService = HBaseMetadataService
+                .newInstance(environmentService, clusterId, securityContext, subject)) {
             return WSUtils.respondEntity(Subject.doAs(subject, (PrivilegedExceptionAction<Tables>) hbaseMetadataService::getHBaseTables), OK);
         } catch (EntityNotFoundException ex) {
             throw com.hortonworks.streamline.common.exception.service.exception.request.EntityNotFoundException.byId(ex.getMessage());
@@ -94,7 +95,8 @@ public class HBaseMetadataResource {
     public Response getNamespaceTablesByClusterId(@PathParam("clusterId") Long clusterId, @PathParam("namespace") String namespace,
                                                   @Context SecurityContext securityContext) throws Exception {
         SecurityUtil.checkPermissions(authorizer, securityContext, Cluster.NAMESPACE, clusterId, READ);
-        try (HBaseMetadataService hbaseMetadataService = HBaseMetadataService.newInstance(environmentService, clusterId)) {
+        try (HBaseMetadataService hbaseMetadataService = HBaseMetadataService
+                .newInstance(environmentService, clusterId, securityContext, subject)) {
             return WSUtils.respondEntity(Subject.doAs(subject, (PrivilegedExceptionAction<Tables>)() -> hbaseMetadataService.getHBaseTables(namespace)), OK);
         } catch (EntityNotFoundException ex) {
             throw com.hortonworks.streamline.common.exception.service.exception.request.EntityNotFoundException.byId(ex.getMessage());

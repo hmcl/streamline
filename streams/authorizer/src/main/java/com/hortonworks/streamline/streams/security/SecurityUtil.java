@@ -16,14 +16,20 @@
 package com.hortonworks.streamline.streams.security;
 
 import com.hortonworks.streamline.common.exception.service.exception.request.WebserviceAuthorizationException;
+import com.hortonworks.streamline.common.function.SupplierException;
 import com.hortonworks.streamline.storage.Storable;
 
-import javax.ws.rs.core.SecurityContext;
+import java.security.AccessController;
 import java.security.Principal;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import javax.security.auth.Subject;
+import javax.ws.rs.core.SecurityContext;
 
 public final class SecurityUtil {
 
@@ -90,5 +96,32 @@ public final class SecurityUtil {
         AuthenticationContext context = new AuthenticationContext();
         context.setPrincipal(principal);
         return context;
+    }
+
+    /**
+     * Executes the supplied action. If {@code securityContext.isSecure() == true}, it wraps the
+     * action execution with Subject.doAs(subject, action) where subject is returned by {@link SecurityUtil#getSubject}
+     */
+    public static <T, E extends Exception> T execute(SecurityContext securityContext,
+            SupplierException<T, E> action) throws E, PrivilegedActionException {
+        if (securityContext != null && securityContext.isSecure()) {
+            return Subject.doAs(getSubject(), (PrivilegedExceptionAction<T>) action::get);
+        } else {
+            return action.get();
+        }
+    }
+
+    //TODO
+    public static <T, E extends Exception> T execute(SecurityContext securityContext,
+                                                     SupplierException<T, E> action, boolean isSecure) throws E, PrivilegedActionException {
+        if (isSecure) {
+            return Subject.doAs(getSubject(), (PrivilegedExceptionAction<T>) action::get);
+        } else {
+            return action.get();
+        }
+    }
+
+    public static Subject getSubject() {
+        return Subject.getSubject(AccessController.getContext());
     }
 }
