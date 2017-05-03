@@ -34,6 +34,7 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -99,6 +100,10 @@ public class HiveMetadataService implements AutoCloseable {
     public static HiveMetadataService newInstance(HiveConf hiveConf, SecurityContext securityContext, Subject subject)
             throws MetaException, IOException, ServiceConfigurationNotFoundException,
                 ServiceNotFoundException, PrivilegedActionException {
+
+
+        UserGroupInformation.setConfiguration(hiveConf);
+        UserGroupInformation.getUGIFromSubject(subject);    // Sets the User principal in this subject
 
         //TODO FIX the isSECURE
         return new HiveMetadataService(SecurityUtil.execute(() -> new HiveMetaStoreClient(hiveConf),
