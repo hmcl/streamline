@@ -58,15 +58,17 @@ public class HBaseMetadataService implements AutoCloseable {
     private Admin hBaseAdmin;
     private SecurityContext securityContext;
     private Subject subject;
+    private User user;
 
     public HBaseMetadataService(Admin hBaseAdmin) {
-        this(hBaseAdmin, null, null);
+        this(hBaseAdmin, null, null, null);
     }
 
-    public HBaseMetadataService(Admin hBaseAdmin, SecurityContext securityContext, Subject subject) {
+    public HBaseMetadataService(Admin hBaseAdmin, SecurityContext securityContext, Subject subject, User user) {
         this.hBaseAdmin = hBaseAdmin;
         this.securityContext = securityContext;
         this.subject = subject;
+        this.user = user;
     }
 
     /**
@@ -104,9 +106,13 @@ public class HBaseMetadataService implements AutoCloseable {
 
         UserGroupInformation.setConfiguration(hbaseConfig);
 
-        return new HBaseMetadataService(ConnectionFactory.createConnection(hbaseConfig,
-                    User.create(UserGroupInformation.getUGIFromSubject(subject)))
-                .getAdmin(), securityContext, subject);
+        final UserGroupInformation ugiFromSubject = UserGroupInformation.getUGIFromSubject(subject);
+        final UserGroupInformation proxyUserForImpersonation = UserGroupInformation
+                .createProxyUser(securityContext.getUserPrincipal().getName(), ugiFromSubject);
+        final User user = User.create(proxyUserForImpersonation);
+
+        return new HBaseMetadataService(ConnectionFactory.createConnection(hbaseConfig, user)
+                .getAdmin(), securityContext, subject, user);
     }
 
     private static Configuration overrideConfig(Configuration hbaseConfig, EnvironmentService environmentService, Long clusterId)
@@ -149,8 +155,13 @@ public class HBaseMetadataService implements AutoCloseable {
         });
     }
 
+    // TODO proper exception handling
     private <T, E extends Exception> T executeSecure(SupplierException<T, E> action) throws PrivilegedActionException, E {
-        return SecurityUtil.execute(action, securityContext, subject, true); //TODO
+        try {
+            return SecurityUtil.execute(action, securityContext, user, true); //TODO
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /*

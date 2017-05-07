@@ -19,6 +19,9 @@ import com.hortonworks.streamline.common.exception.service.exception.request.Web
 import com.hortonworks.streamline.common.function.SupplierException;
 import com.hortonworks.streamline.storage.Storable;
 
+import org.apache.hadoop.hbase.security.User;
+
+import java.io.IOException;
 import java.security.AccessController;
 import java.security.Principal;
 import java.security.PrivilegedActionException;
@@ -120,11 +123,30 @@ public final class SecurityUtil {
         }
     }
 
+    public static <T, E extends Exception> T execute(SupplierException<T, E> action, SecurityContext securityContext, User user)
+            throws E, PrivilegedActionException, IOException, InterruptedException {
+        if (user != null && securityContext != null && securityContext.isSecure()) {     //TODO Add logs
+            return user.runAs((PrivilegedExceptionAction<T>) action::get);
+        } else {
+            return action.get();
+        }
+    }
+
     //TODO Delete
     public static <T, E extends Exception> T execute(SupplierException<T, E> action, SecurityContext securityContext,
                                                      Subject subject, boolean isSecure) throws E, PrivilegedActionException {
         if (isSecure) {
             return Subject.doAs(subject, (PrivilegedExceptionAction<T>) action::get);
+        } else {
+            return action.get();
+        }
+    }
+
+    //TODO Delete
+    public static <T, E extends Exception> T execute(SupplierException<T, E> action, SecurityContext securityContext,
+                 User user, boolean isSecure) throws E, PrivilegedActionException, IOException, InterruptedException {
+        if (isSecure) {
+            return user.runAs((PrivilegedExceptionAction<T>) action::get);
         } else {
             return action.get();
         }
