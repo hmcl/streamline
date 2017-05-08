@@ -27,6 +27,7 @@ import com.hortonworks.streamline.streams.cluster.service.metadata.common.Overri
 import com.hortonworks.streamline.streams.cluster.service.metadata.common.Tables;
 import com.hortonworks.streamline.streams.security.SecurityUtil;
 
+import org.apache.hadoop.hbase.security.User;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -61,21 +62,21 @@ public class HiveMetadataService implements AutoCloseable {
                                       // the 1 parameter constructor, it is set to null
     private HiveMetaStoreClient metaStoreClient;
     private final SecurityContext securityContext;
-    private final Subject subject;
+    private User user;
 
-    public HiveMetadataService(HiveMetaStoreClient metaStoreClient, SecurityContext securityContext, Subject subject) {
-        this(metaStoreClient, null, securityContext, subject);
+    public HiveMetadataService(HiveMetaStoreClient metaStoreClient, SecurityContext securityContext, User user) {
+        this(metaStoreClient, null, securityContext, user);
     }
 
     /**
      * @param hiveConf The hive configuration used to instantiate {@link HiveMetaStoreClient}
      */
     private HiveMetadataService(HiveMetaStoreClient metaStoreClient, HiveConf hiveConf,
-                                SecurityContext securityContext, Subject subject) {
+                                SecurityContext securityContext, User user) {
         this.metaStoreClient = metaStoreClient;
         this.hiveConf = hiveConf;
         this.securityContext = securityContext;
-        this.subject = subject;
+        this.user = user;
     }
 
     /**
@@ -103,11 +104,15 @@ public class HiveMetadataService implements AutoCloseable {
 
 
         UserGroupInformation.setConfiguration(hiveConf);
-        UserGroupInformation.getUGIFromSubject(subject);    // Sets the User principal in this subject
+
+        final UserGroupInformation ugiFromSubject = UserGroupInformation.getUGIFromSubject(subject);        // Sets the User principal in this subject
+        final UserGroupInformation proxyUserForImpersonation = UserGroupInformation
+                .createProxyUser(securityContext.getUserPrincipal().getName(), ugiFromSubject);
+        final User user = User.create(proxyUserForImpersonation);
 
         //TODO FIX the isSECURE
         return new HiveMetadataService(SecurityUtil.execute(() -> new HiveMetaStoreClient(hiveConf),
-                securityContext, subject, true), hiveConf, securityContext, subject);
+                securityContext, subject, true), hiveConf, securityContext, user);
     }
 
     private static List<String> getConfigNames() {
@@ -137,8 +142,13 @@ public class HiveMetadataService implements AutoCloseable {
         });
     }
 
+    //TODO handle exceptions
     private <T, E extends Exception> T executeSecure(SupplierException<T, E> action) throws PrivilegedActionException, E {
-        return SecurityUtil.execute(action, securityContext, subject, true); //TODO
+        try {
+            return SecurityUtil.execute(action, securityContext, user, true); //TODO
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /*
@@ -195,7 +205,7 @@ public class HiveMetadataService implements AutoCloseable {
     /**
      * @return a copy of the {@link HiveConf} used to configure the {@link HiveMetaStoreClient} instance created
      * using the factory methods. null if this object was initialized using the
-     * {@link HiveMetadataService#HiveMetadataService(HiveMetaStoreClient, SecurityContext, Subject)} constructor
+     * {@link HiveMetadataService#HiveMetadataService(HiveMetaStoreClient, SecurityContext, User)} constructor
      */
     public HiveConf getHiveConfCopy() {
         return hiveConf == null ? null : new HiveConf(hiveConf);
