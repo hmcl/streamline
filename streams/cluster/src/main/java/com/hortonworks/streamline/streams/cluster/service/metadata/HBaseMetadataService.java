@@ -19,6 +19,7 @@ package com.hortonworks.streamline.streams.cluster.service.metadata;
 import com.google.common.collect.ImmutableList;
 
 import com.hortonworks.streamline.common.function.SupplierException;
+import com.hortonworks.streamline.streams.catalog.exception.EntityNotFoundException;
 import com.hortonworks.streamline.streams.catalog.exception.ServiceConfigurationNotFoundException;
 import com.hortonworks.streamline.streams.catalog.exception.ServiceNotFoundException;
 import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
@@ -38,10 +39,13 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.security.User;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.security.PrivilegedActionException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -52,6 +56,8 @@ import javax.ws.rs.core.SecurityContext;
  * Provides HBase databases tables metadata information using {@link org.apache.hadoop.hbase.client.HBaseAdmin}
  */
 public class HBaseMetadataService implements AutoCloseable {
+    private static final Logger LOG = LoggerFactory.getLogger(HBaseMetadataService.class);
+
     private static final List<String> STREAMS_JSON_SCHEMA_CONFIG_HBASE_SITE =
             ImmutableList.copyOf(new String[] {ServiceConfigurations.HBASE.getConfNames()[2]});
 
@@ -69,63 +75,69 @@ public class HBaseMetadataService implements AutoCloseable {
         this.securityContext = securityContext;
         this.subject = subject;
         this.user = user;
+        LOG.info("Created {}", this);
     }
 
     /**
-     * Creates a new instance of {@link HBaseMetadataService} which delegates commands to {@link Admin}, which is instantiated with default {@link       //TODO DOCS
-     * HBaseConfiguration} and {@code hbase-site.xml} config default properties overridden with the values set in hbase-site.xml
-     * specified in cluster imported in the service pool (either manually or using Ambari)"
+     * Creates insecure {@link HBaseMetadataService} which delegates to {@link Admin} instantiated with default
+     * {@link HBaseConfiguration} and {@code hbase-site.xml} properties overridden with the config
+     * for the cluster imported in the service pool (either manually or using Ambari)
      */
     public static HBaseMetadataService newInstance(EnvironmentService environmentService, Long clusterId)
-            throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
+            throws IOException, EntityNotFoundException {
 
-        return HBaseMetadataService.newInstance(overrideConfig(HBaseConfiguration.create(), environmentService, clusterId));
+        return newInstance(overrideConfig(HBaseConfiguration.create(), environmentService, clusterId));
     }
 
-    public static HBaseMetadataService newInstance(Configuration hbaseConfig)
-            throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
+    /**
+     * Creates insecure {@link HBaseMetadataService} which delegates to {@link Admin}
+     * instantiated with with the {@link Configuration} provided using the first parameter
+     */
+    public static HBaseMetadataService newInstance(Configuration hbaseConfig) throws IOException, EntityNotFoundException {
         return new HBaseMetadataService(ConnectionFactory.createConnection(hbaseConfig).getAdmin());
     }
 
     /**
-     * Creates a new instance of {@link HBaseMetadataService} which delegates to {@link Admin} instantiated  with the provided       //TODO DOCS
-     * {@link HBaseConfiguration} and {@code hbase-site.xml} config related properties overridden with the values set in the
-     * hbase-site config serialized in "streams json"
+     * Creates secure {@link HBaseMetadataService} which delegates to {@link Admin} instantiated with default
+     * {@link HBaseConfiguration} and {@code hbase-site.xml} properties overridden with the config
+     * for the cluster imported in the service pool (either manually or using Ambari)
      */
     public static HBaseMetadataService newInstance(EnvironmentService environmentService, Long clusterId,
-                                                   SecurityContext securityContext, Subject subject)
-            throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
+            SecurityContext securityContext, Subject subject) throws IOException, EntityNotFoundException {
 
-        return HBaseMetadataService.newInstance(
-                overrideConfig(HBaseConfiguration.create(), environmentService, clusterId),
-                securityContext, subject);
+            return newInstance(
+                    overrideConfig(HBaseConfiguration.create(), environmentService, clusterId),
+                    securityContext, subject);
     }
 
+    /**
+     * Creates secure {@link HBaseMetadataService} which delegates to {@link Admin}
+     * instantiated with with the {@link Configuration} provided using the first parameter
+     */
     public static HBaseMetadataService newInstance(Configuration hbaseConfig, SecurityContext securityContext, Subject subject)
-                throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
+                throws IOException, EntityNotFoundException {
 
-        UserGroupInformation.setConfiguration(hbaseConfig);
+        if (true) { //TODO
+//        if (securityContext.isSecure()) {
+            UserGroupInformation.setConfiguration(hbaseConfig);                                             // Sets Kerberos rules
+            final UserGroupInformation ugiFromSubject = UserGroupInformation.getUGIFromSubject(subject);    // Adds User principal to the subject
+            final UserGroupInformation proxyUserForImpersonation = UserGroupInformation
+                    .createProxyUser(securityContext.getUserPrincipal().getName(), ugiFromSubject);
+            final User user = User.create(proxyUserForImpersonation);
 
-        final UserGroupInformation ugiFromSubject = UserGroupInformation.getUGIFromSubject(subject);
-        final UserGroupInformation proxyUserForImpersonation = UserGroupInformation
-                .createProxyUser(securityContext.getUserPrincipal().getName(), ugiFromSubject);
-        final User user = User.create(proxyUserForImpersonation);
-
-        return new HBaseMetadataService(ConnectionFactory.createConnection(hbaseConfig, user)
-                .getAdmin(), securityContext, subject, user);
-    }
-
-    private static Configuration overrideConfig(Configuration hbaseConfig, EnvironmentService environmentService, Long clusterId)
-            throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
-        return OverrideHadoopConfiguration.override(environmentService, clusterId,
-                ServiceConfigurations.HBASE, STREAMS_JSON_SCHEMA_CONFIG_HBASE_SITE, hbaseConfig);
+            return new HBaseMetadataService(ConnectionFactory.createConnection(hbaseConfig, user)
+                    .getAdmin(), securityContext, subject, user);
+        } else {
+            return newInstance(hbaseConfig);
+        }
     }
 
     /**
      * @return All tables for all namespaces
      */
     public Tables getHBaseTables() throws Exception {
-        TableName[] tableNames = executeSecure(() -> hBaseAdmin.listTableNames());
+        final TableName[] tableNames = executeSecure(() -> hBaseAdmin.listTableNames());
+        LOG.debug("HBase tables {}", Arrays.toString(tableNames));
         return Tables.newInstance(tableNames);
     }
 
@@ -133,16 +145,19 @@ public class HBaseMetadataService implements AutoCloseable {
      * @param namespace Namespace for which to get table names
      * @return All tables for the namespace given as parameter
      */
-    public Tables getHBaseTables(final String namespace) throws IOException, PrivilegedActionException {
+    public Tables getHBaseTables(final String namespace) throws IOException, PrivilegedActionException, InterruptedException {
         final TableName[] tableNames = executeSecure(() -> hBaseAdmin.listTableNamesByNamespace(namespace));
+        LOG.debug("HBase namespace [{}] has tables {}", namespace, Arrays.toString(tableNames));
         return Tables.newInstance(tableNames);
     }
 
     /**
      * @return All namespaces
      */
-    public Namespaces getHBaseNamespaces() throws IOException, PrivilegedActionException {
-        return Namespaces.newInstance(executeSecure(() -> hBaseAdmin.listNamespaceDescriptors()));
+    public Namespaces getHBaseNamespaces() throws IOException, PrivilegedActionException, InterruptedException {
+        final Namespaces namespaces = Namespaces.newInstance(executeSecure(() -> hBaseAdmin.listNamespaceDescriptors()));
+        LOG.debug("HBase namespaces {}", namespaces);
+        return namespaces;
     }
 
     @Override
@@ -156,12 +171,15 @@ public class HBaseMetadataService implements AutoCloseable {
     }
 
     // TODO proper exception handling
-    private <T, E extends Exception> T executeSecure(SupplierException<T, E> action) throws PrivilegedActionException, E {
-        try {
-            return SecurityUtil.execute(action, securityContext, user, true); //TODO
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+    private <T, E extends Exception> T executeSecure(SupplierException<T, E> action)
+            throws PrivilegedActionException, E, IOException, InterruptedException {
+        return SecurityUtil.execute(action, securityContext, user, true); //TODO
+    }
+
+    private static Configuration overrideConfig(Configuration hbaseConfig, EnvironmentService environmentService, Long clusterId)
+            throws IOException, ServiceConfigurationNotFoundException, ServiceNotFoundException {
+        return OverrideHadoopConfiguration.override(environmentService, clusterId,
+                ServiceConfigurations.HBASE, STREAMS_JSON_SCHEMA_CONFIG_HBASE_SITE, hbaseConfig);
     }
 
     /*
@@ -187,6 +205,16 @@ public class HBaseMetadataService implements AutoCloseable {
 
     void disableTable(String namespace, String tableName) throws IOException {
         hBaseAdmin.disableTable(TableName.valueOf(namespace, tableName));
+    }
+
+    @Override
+    public String toString() {
+        return "HBaseMetadataService{" +
+                "hBaseAdmin=" + hBaseAdmin +
+                ", securityContext=" + securityContext +
+                ", subject=" + subject +
+                ", user=" + user +
+                '}';
     }
 
     /**
