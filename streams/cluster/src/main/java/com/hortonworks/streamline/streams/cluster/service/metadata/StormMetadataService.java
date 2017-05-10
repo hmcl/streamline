@@ -16,6 +16,7 @@
 package com.hortonworks.streamline.streams.cluster.service.metadata;
 
 import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.hortonworks.streamline.common.JsonClientUtil;
 import com.hortonworks.streamline.streams.catalog.Component;
 import com.hortonworks.streamline.streams.catalog.Service;
@@ -26,6 +27,7 @@ import com.hortonworks.streamline.streams.cluster.discovery.ambari.ComponentProp
 import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
 import com.hortonworks.streamline.streams.cluster.service.EnvironmentService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.common.HostPort;
+import com.hortonworks.streamline.streams.cluster.service.metadata.common.Tables;
 
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
@@ -53,15 +55,22 @@ public class StormMetadataService {
     public static final String SERVICE_STORM_VIEW = "STORM_VIEW";
     public static final String STORM_VIEW_CONFIGURATION_KEY_STORM_VIEW_URL = "storm.view.url";
 
+    private SecurityContext securityContext;
     private Client httpClient;
     private String tplgySumUrl;     // http://cn067.l42scl.hortonworks.com:8744/api/v1/topology/summary
     private String mainPageUrl;     // Views: http://172.12.128.67:8080/main/views/Storm_Monitoring/0.1.0/STORM_CLUSTER_INSTANCE
                                     // UI:    http://pm-eng1-cluster1.field.hortonworks.com:8744
 
+
     public StormMetadataService(Client httpClient, String tplgySumUrl, String mainPageUrl) {
+        this(httpClient, tplgySumUrl, mainPageUrl, null);
+    }
+
+    public StormMetadataService(Client httpClient, String tplgySumUrl, String mainPageUrl, SecurityContext securityContext) {
         this.httpClient = httpClient;
         this.tplgySumUrl = tplgySumUrl;
         this.mainPageUrl = mainPageUrl;
+        this.securityContext = securityContext;
     }
 
     public static class Builder {
@@ -94,7 +103,7 @@ public class StormMetadataService {
         }
 
         public StormMetadataService build() throws ServiceNotFoundException, ServiceComponentNotFoundException {
-            return new StormMetadataService(newHttpClient(), getTopologySummaryRestUrl(), getMainPageUrl());
+            return new StormMetadataService(newHttpClient(), getTopologySummaryRestUrl(), getMainPageUrl(), securityContext);
         }
 
         /**
@@ -135,7 +144,7 @@ public class StormMetadataService {
         }
 
         private String getTopologySummaryRestUrl() throws ServiceNotFoundException, ServiceComponentNotFoundException {
-            HostPort hostPort = getHostPort();
+            final HostPort hostPort = getHostPort();
             String url = "http://" + hostPort.toString() + (urlRelativePath.startsWith("/") ? urlRelativePath : "/" + urlRelativePath);
             if (securityContext.isSecure()) {
                 url += "?" + STORM_REST_API_DO_AS_USER_QUERY_PARAM + "=" + securityContext.getUserPrincipal().getName();
@@ -175,7 +184,7 @@ public class StormMetadataService {
                 }
             }
         }
-        return new Topologies(topologies);
+        return new Topologies(topologies, securityContext);
     }
 
     /**
@@ -201,14 +210,23 @@ public class StormMetadataService {
      * */
     public static class Topologies {
         private List<String> topologies;
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        private String msg;
 
-        public Topologies(List<String> topologies) {
+        public Topologies(List<String> topologies, SecurityContext securityContext) {
             this.topologies = topologies;
+            if (securityContext.isSecure()) {
+                msg = Tables.AUTHRZ_MSG;
+            }
         }
 
         @JsonGetter("topologies")
-        public List<String> asList() {
+        public List<String> list() {
             return topologies;
+        }
+
+        public String getMsg() {
+            return msg;
         }
     }
 }

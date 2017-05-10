@@ -25,6 +25,9 @@ import java.util.List;
  * Wrapper used to show proper JSON formatting
  */
 public class Tables {
+    public static final String AUTHRZ_MSG =
+            "Authorization not enforced. Every authenticated user has access to all metadata info";
+
     private List<String> tables;
 
     public Tables(List<String> tables) {

@@ -240,9 +240,6 @@ public class HiveMetadataService implements AutoCloseable {
      * Wrapper used to show proper JSON formatting
      */
     public static class Databases {
-        private static final String AUTHRZ_MSG =
-                "Authorization not enforced. Every authenticated user has access the entire metadata info";
-
         private List<String> databases;
         @JsonInclude(JsonInclude.Include.NON_NULL)
         private String msg;
@@ -250,7 +247,7 @@ public class HiveMetadataService implements AutoCloseable {
         public Databases(List<String> databases, boolean isSecure) {
             this.databases = databases;
             if (isSecure) {
-                msg = AUTHRZ_MSG;
+                msg = Tables.AUTHRZ_MSG;
             }
         }
 

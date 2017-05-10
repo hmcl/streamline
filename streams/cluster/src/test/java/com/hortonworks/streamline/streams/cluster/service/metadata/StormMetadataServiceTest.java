@@ -66,7 +66,7 @@ public class StormMetadataServiceTest {
             builder.get(String.class); result = getTopologiesSummary();
         }};
 
-        final List<String> actualTopologies = stormService.getTopologies().asList();
+        final List<String> actualTopologies = stormService.getTopologies().list();
         Collections.sort(actualTopologies);
 
         final List<String> expectedTopologies = Lists.newArrayList("kafka-topology-2-1474413185",
