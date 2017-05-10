@@ -179,8 +179,7 @@ public class KafkaMetadataService implements AutoCloseable {
 
         public BrokersInfo(List<T> brokers, SecurityContext securityContext) {
             this.brokers = brokers;
-            if (true) {  //TODO
-//            if (securityContext != null && securityContext.isSecure()) {
+            if (securityContext != null && securityContext.isSecure()) {
                 msg = Tables.AUTHRZ_MSG;
             }
         }

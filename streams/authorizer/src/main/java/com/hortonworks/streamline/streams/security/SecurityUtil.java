@@ -20,6 +20,8 @@ import com.hortonworks.streamline.common.function.SupplierException;
 import com.hortonworks.streamline.storage.Storable;
 
 import org.apache.hadoop.hbase.security.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.security.AccessController;
@@ -35,6 +37,7 @@ import javax.security.auth.Subject;
 import javax.ws.rs.core.SecurityContext;
 
 public final class SecurityUtil {
+    private static final Logger LOG = LoggerFactory.getLogger(SecurityUtil.class);
 
     public static void checkRole(StreamlineAuthorizer authorizer, SecurityContext securityContext, String... roles) {
         Principal principal = securityContext.getUserPrincipal();
@@ -116,38 +119,22 @@ public final class SecurityUtil {
      */
     public static <T, E extends Exception> T execute(SupplierException<T, E> action, SecurityContext securityContext, Subject subject)
             throws E, PrivilegedActionException {
-        if (subject != null && securityContext != null && securityContext.isSecure()) {     //TODO Add logs
+        if (subject != null && securityContext != null && securityContext.isSecure()) {
+            LOG.debug("Executing secure action [{}] for subject [{}] with security context [{}]", action, securityContext, subject);
             return Subject.doAs(subject, (PrivilegedExceptionAction<T>) action::get);
         } else {
+            LOG.debug("Executing insecure action [{}] for subject [{}] with security context [{}]", action, securityContext, subject);
             return action.get();
         }
     }
 
     public static <T, E extends Exception> T execute(SupplierException<T, E> action, SecurityContext securityContext, User user)
             throws E, PrivilegedActionException, IOException, InterruptedException {
-        if (user != null && securityContext != null && securityContext.isSecure()) {     //TODO Add logs
+        if (user != null && securityContext != null && securityContext.isSecure()) {
+            LOG.debug("Executing secure action [{}] for user [{}] with security context [{}]", action, securityContext, user);
             return user.runAs((PrivilegedExceptionAction<T>) action::get);
         } else {
-            return action.get();
-        }
-    }
-
-    //TODO Delete
-    public static <T, E extends Exception> T execute(SupplierException<T, E> action, SecurityContext securityContext,
-                                                     Subject subject, boolean isSecure) throws E, PrivilegedActionException {
-        if (isSecure) {
-            return Subject.doAs(subject, (PrivilegedExceptionAction<T>) action::get);
-        } else {
-            return action.get();
-        }
-    }
-
-    //TODO Delete
-    public static <T, E extends Exception> T execute(SupplierException<T, E> action, SecurityContext securityContext,
-                 User user, boolean isSecure) throws E, PrivilegedActionException, IOException, InterruptedException {
-        if (isSecure) {
-            return user.runAs((PrivilegedExceptionAction<T>) action::get);
-        } else {
+            LOG.debug("Executing insecure action [{}] for user [{}] with security context [{}]", action, securityContext, user);
             return action.get();
         }
     }

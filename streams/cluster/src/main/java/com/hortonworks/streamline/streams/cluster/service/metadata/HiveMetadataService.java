@@ -99,7 +99,6 @@ public class HiveMetadataService implements AutoCloseable {
             throws MetaException, IOException, ServiceConfigurationNotFoundException,
             ServiceNotFoundException, PrivilegedActionException {
 
-        //TODO FIX the isSecure
         return new HiveMetadataService(new HiveMetaStoreClient(hiveConf), hiveConf, null, null);
     }
 
@@ -128,14 +127,12 @@ public class HiveMetadataService implements AutoCloseable {
     public static HiveMetadataService newInstance(HiveConf hiveConf, SecurityContext securityContext, Subject subject)
             throws MetaException, IOException, EntityNotFoundException, PrivilegedActionException {
 
-        if (true) { //TODO
-//        if (securityContext.isSecure()) {
+        if (securityContext.isSecure()) {
             UserGroupInformation.setConfiguration(hiveConf);    // Sets Kerberos rules
             UserGroupInformation.getUGIFromSubject(subject);    // Sets the User principal in this subject
 
-            //TODO FIX the isSecure
             return new HiveMetadataService(SecurityUtil.execute(() -> new HiveMetaStoreClient(hiveConf),
-                    securityContext, subject, true), hiveConf, securityContext, subject);
+                    securityContext, subject), hiveConf, securityContext, subject);
         } else {
             return newInstance(hiveConf);
         }
@@ -173,7 +170,7 @@ public class HiveMetadataService implements AutoCloseable {
     }
 
     private <T, E extends Exception> T executeSecure(SupplierException<T, E> action) throws PrivilegedActionException, E {
-        return SecurityUtil.execute(action, securityContext, subject, true); //TODO
+        return SecurityUtil.execute(action, securityContext, subject);
     }
 
     /*
@@ -252,8 +249,7 @@ public class HiveMetadataService implements AutoCloseable {
         }
 
         public static Databases newInstance(List<String> databases, SecurityContext securityContext) {
-            final boolean isSecure = true;
-//            final boolean isSecure = securityContext.isSecure();    //TODO
+            final boolean isSecure = securityContext.isSecure();
             return databases == null ? new Databases(Collections.emptyList(), isSecure) : new Databases(databases, isSecure);
         }
 

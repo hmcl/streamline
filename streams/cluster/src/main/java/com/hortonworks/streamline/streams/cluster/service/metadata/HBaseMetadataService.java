@@ -117,8 +117,7 @@ public class HBaseMetadataService implements AutoCloseable {
     public static HBaseMetadataService newInstance(Configuration hbaseConfig, SecurityContext securityContext, Subject subject)
                 throws IOException, EntityNotFoundException {
 
-        if (true) { //TODO
-//        if (securityContext.isSecure()) {
+        if (securityContext.isSecure()) {
             UserGroupInformation.setConfiguration(hbaseConfig);                                             // Sets Kerberos rules
             final UserGroupInformation ugiFromSubject = UserGroupInformation.getUGIFromSubject(subject);    // Adds User principal to the subject
             final UserGroupInformation proxyUserForImpersonation = UserGroupInformation
@@ -170,10 +169,9 @@ public class HBaseMetadataService implements AutoCloseable {
         });
     }
 
-    // TODO proper exception handling
     private <T, E extends Exception> T executeSecure(SupplierException<T, E> action)
             throws PrivilegedActionException, E, IOException, InterruptedException {
-        return SecurityUtil.execute(action, securityContext, user, true); //TODO
+        return SecurityUtil.execute(action, securityContext, user);
     }
 
     private static Configuration overrideConfig(Configuration hbaseConfig, EnvironmentService environmentService, Long clusterId)
@@ -183,8 +181,8 @@ public class HBaseMetadataService implements AutoCloseable {
     }
 
     /*
-        Create and delete methods useful for system tests. Left as package protected for now.
-        These methods can be made public and exposed in REST API.
+       Create and delete methods useful for system tests. Left as package protected for now.
+       These methods can be made public and exposed in REST API.
     */
     void createNamespace(String namespace) throws IOException {
         hBaseAdmin.createNamespace(NamespaceDescriptor.create(namespace).build());

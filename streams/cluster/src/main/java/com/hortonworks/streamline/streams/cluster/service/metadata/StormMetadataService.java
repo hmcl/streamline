@@ -148,7 +148,6 @@ public class StormMetadataService {
             String url = "http://" + hostPort.toString() + (urlRelativePath.startsWith("/") ? urlRelativePath : "/" + urlRelativePath);
             if (securityContext.isSecure()) {
                 url += "?" + STORM_REST_API_DO_AS_USER_QUERY_PARAM + "=" + securityContext.getUserPrincipal().getName();
-                //TODO - Do we need to extract the user part of the principal with format user@REALM ? Or do we pass the whole principal ?
             }
             return url;
         }
@@ -213,9 +212,13 @@ public class StormMetadataService {
         @JsonInclude(JsonInclude.Include.NON_NULL)
         private String msg;
 
+        public Topologies(List<String> topologies) {
+            this(topologies, null);
+        }
+
         public Topologies(List<String> topologies, SecurityContext securityContext) {
             this.topologies = topologies;
-            if (securityContext.isSecure()) {
+            if (securityContext != null && securityContext.isSecure()) {
                 msg = Tables.AUTHRZ_MSG;
             }
         }
