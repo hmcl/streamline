@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.hortonworks.streamline.common.function.SupplierException;
+import com.hortonworks.streamline.streams.catalog.exception.EntityNotFoundException;
 import com.hortonworks.streamline.streams.catalog.exception.ServiceConfigurationNotFoundException;
 import com.hortonworks.streamline.streams.catalog.exception.ServiceNotFoundException;
 import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
@@ -53,7 +54,7 @@ import javax.ws.rs.core.SecurityContext;
  * Provides Hive databases, and database tables metadata information using {@link HiveMetaStoreClient}
  */
 public class HiveMetadataService implements AutoCloseable {
-    protected static final Logger LOG = LoggerFactory.getLogger(HiveMetadataService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(HiveMetadataService.class);
 
     private static final String STREAMS_JSON_SCHEMA_CONFIG_HIVE_METASTORE_SITE = ServiceConfigurations.HIVE.getConfNames()[3];
     private static final String STREAMS_JSON_SCHEMA_CONFIG_HIVE_SITE = ServiceConfigurations.HIVE.getConfNames()[6];
@@ -64,14 +65,14 @@ public class HiveMetadataService implements AutoCloseable {
     private final SecurityContext securityContext;
     private final Subject subject;
 
-    public HiveMetadataService(HiveMetaStoreClient metaStoreClient, SecurityContext securityContext, Subject subject) {
-        this(metaStoreClient, null, securityContext, subject);
+    public HiveMetadataService(HiveMetaStoreClient metaStoreClient) {
+        this(metaStoreClient, null, null, null);
     }
 
     /**
      * @param hiveConf The hive configuration used to instantiate {@link HiveMetaStoreClient}
      */
-    private HiveMetadataService(HiveMetaStoreClient metaStoreClient, HiveConf hiveConf,
+    public HiveMetadataService(HiveMetaStoreClient metaStoreClient, HiveConf hiveConf,
                                 SecurityContext securityContext, Subject subject) {
         this.metaStoreClient = metaStoreClient;
         this.hiveConf = hiveConf;
@@ -81,34 +82,63 @@ public class HiveMetadataService implements AutoCloseable {
     }
 
     /**
-     * Creates {@link HiveMetadataService}, which delegates to {@link HiveMetaStoreClient} instantiated with
+     * Creates insecure {@link HiveMetadataService}, which delegates to {@link HiveMetaStoreClient} instantiated with
      * default {@link HiveConf}, and {@code hivemetastore-site.xml} and {@code hive-site.xml} properties overridden
-     * with the config for the cluster imported in the service pool (represented in "streams json")
+     * with the config for the cluster imported in the service pool (either manually or using Ambari)
      */
-    public static HiveMetadataService newInstance(EnvironmentService environmentService, Long clusterId,
-                                                  SecurityContext securityContext, Subject subject)
-            throws MetaException, IOException, ServiceConfigurationNotFoundException,
-                ServiceNotFoundException, PrivilegedActionException {
-
-        return HiveMetadataService.newInstance(OverrideHadoopConfiguration.override(environmentService, clusterId,
-                ServiceConfigurations.HIVE, getConfigNames(), new HiveConf()), securityContext, subject);
+    public static HiveMetadataService newInstance(EnvironmentService environmentService, Long clusterId)
+            throws IOException, EntityNotFoundException, MetaException, PrivilegedActionException {
+        return newInstance(overrideConfig(environmentService, clusterId));
     }
 
     /**
-     * Creates {@link HiveMetadataService}, which delegates to {@link HiveMetaStoreClient}
+     * Creates secure {@link HiveMetadataService}, which delegates to {@link HiveMetaStoreClient}
+     * instantiated with the {@link HiveConf} provided using the first parameter
+     */
+    public static HiveMetadataService newInstance(HiveConf hiveConf)
+            throws MetaException, IOException, ServiceConfigurationNotFoundException,
+            ServiceNotFoundException, PrivilegedActionException {
+
+        //TODO FIX the isSecure
+        return new HiveMetadataService(new HiveMetaStoreClient(hiveConf), hiveConf, null, null);
+    }
+
+    /**
+     * Creates secure {@link HiveMetadataService}, which delegates to {@link HiveMetaStoreClient} instantiated with
+     * default {@link HiveConf}, and {@code hivemetastore-site.xml} and {@code hive-site.xml} properties overridden
+     * with the config for the cluster imported in the service pool (either manually or using Ambari)
+     */
+    public static HiveMetadataService newInstance(EnvironmentService environmentService, Long clusterId,
+                                                  SecurityContext securityContext, Subject subject)
+            throws MetaException, IOException, EntityNotFoundException, PrivilegedActionException {
+
+        return newInstance(overrideConfig(environmentService, clusterId), securityContext, subject);
+    }
+
+    private static HiveConf overrideConfig(EnvironmentService environmentService, Long clusterId)
+            throws IOException, EntityNotFoundException {
+        return OverrideHadoopConfiguration.override(environmentService, clusterId,
+                ServiceConfigurations.HIVE, getConfigNames(), new HiveConf());
+    }
+
+    /**
+     * Creates secure {@link HiveMetadataService}, which delegates to {@link HiveMetaStoreClient}
      * instantiated with the {@link HiveConf} provided using the first parameter
      */
     public static HiveMetadataService newInstance(HiveConf hiveConf, SecurityContext securityContext, Subject subject)
-            throws MetaException, IOException, ServiceConfigurationNotFoundException,
-                ServiceNotFoundException, PrivilegedActionException {
+            throws MetaException, IOException, EntityNotFoundException, PrivilegedActionException {
 
+        if (true) { //TODO
+//        if (securityContext.isSecure()) {
+            UserGroupInformation.setConfiguration(hiveConf);    // Sets Kerberos rules
+            UserGroupInformation.getUGIFromSubject(subject);    // Sets the User principal in this subject
 
-        UserGroupInformation.setConfiguration(hiveConf);
-        UserGroupInformation.getUGIFromSubject(subject);    // Sets the User principal in this subject
-
-        //TODO FIX the isSecure
-        return new HiveMetadataService(SecurityUtil.execute(() -> new HiveMetaStoreClient(hiveConf),
-                securityContext, subject, true), hiveConf, securityContext, subject);
+            //TODO FIX the isSecure
+            return new HiveMetadataService(SecurityUtil.execute(() -> new HiveMetaStoreClient(hiveConf),
+                    securityContext, subject, true), hiveConf, securityContext, subject);
+        } else {
+            return newInstance(hiveConf);
+        }
     }
 
     private static List<String> getConfigNames() {
@@ -121,7 +151,7 @@ public class HiveMetadataService implements AutoCloseable {
      */
     public Tables getHiveTables(String dbName) throws MetaException, PrivilegedActionException {
         final Tables tables = Tables.newInstance(executeSecure(() -> metaStoreClient.getAllTables(dbName)));
-        LOG.debug("Hive database [{}] has {}", dbName, tables);
+        LOG.debug("Hive database [{}] has tables {}", dbName, tables.getTables());
         return tables;
     }
 
@@ -130,7 +160,7 @@ public class HiveMetadataService implements AutoCloseable {
      */
     public Databases getHiveDatabases() throws MetaException, PrivilegedActionException {
         final Databases databases = Databases.newInstance(executeSecure(metaStoreClient::getAllDatabases), securityContext);
-        LOG.debug("Hive has {}", databases);
+        LOG.debug("Hive databases {}", databases.list());
         return databases;
     }
 
@@ -200,7 +230,7 @@ public class HiveMetadataService implements AutoCloseable {
     /**
      * @return a copy of the {@link HiveConf} used to configure the {@link HiveMetaStoreClient} instance created
      * using the factory methods. null if this object was initialized using the
-     * {@link HiveMetadataService#HiveMetadataService(HiveMetaStoreClient, SecurityContext, Subject)} constructor
+     * {@link HiveMetadataService#HiveMetadataService(HiveMetaStoreClient)} constructor
      */
     public HiveConf getHiveConfCopy() {
         return hiveConf == null ? null : new HiveConf(hiveConf);
@@ -231,7 +261,7 @@ public class HiveMetadataService implements AutoCloseable {
         }
 
         @JsonProperty("databases")
-        public List<String> asList() {
+        public List<String> list() {
             return databases;
         }
 

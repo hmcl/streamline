@@ -124,7 +124,7 @@ public class HiveMetadataServiceTest {
 
     private void test_getHiveDatabases() throws Exception {
         final HiveMetadataService.Databases hiveDatabases = hiveService.getHiveDatabases();
-        Assert.assertTrue(hiveDatabases.asList().containsAll(HIVE_TEST_DATABASES));
+        Assert.assertTrue(hiveDatabases.list().containsAll(HIVE_TEST_DATABASES));
     }
 
     /**
