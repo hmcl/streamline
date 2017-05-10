@@ -49,4 +49,9 @@ public class Tables {
     public List<String> getTables() {
         return tables;
     }
+
+    @Override
+    public String toString() {
+        return "{tables=" + tables + '}';
+    }
 }
