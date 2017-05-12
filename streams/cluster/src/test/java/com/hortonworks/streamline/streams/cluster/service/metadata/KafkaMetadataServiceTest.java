@@ -21,6 +21,7 @@ import com.hortonworks.streamline.streams.catalog.Component;
 import com.hortonworks.streamline.streams.catalog.exception.ZookeeperClientException;
 import com.hortonworks.streamline.streams.cluster.service.EnvironmentService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.common.HostPort;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.KafkaBrokersInfo;
 
 import org.apache.curator.test.TestingServer;
 import org.junit.Assert;
@@ -114,13 +115,13 @@ public class KafkaMetadataServiceTest {
             securityContext.getAuthenticationScheme(); result = AUTHENTICATION_SCHEME_NOT_KERBEROS;
         }};
 
-        final KafkaMetadataService.BrokersInfo<HostPort> brokerHostPort = kafkaMetadataService.getBrokerHostPortFromStreamsJson(1L);
+        final KafkaBrokersInfo<HostPort> brokerHostPort = kafkaMetadataService.getBrokerHostPortFromStreamsJson(1L);
         // verify host
-        Assert.assertEquals(expectedHosts.get(0), brokerHostPort.getInfo().get(0).getHost());
-        Assert.assertEquals(expectedHosts.get(1), brokerHostPort.getInfo().get(1).getHost());
+        Assert.assertEquals(expectedHosts.get(0), brokerHostPort.getBrokers().get(0).getHost());
+        Assert.assertEquals(expectedHosts.get(1), brokerHostPort.getBrokers().get(1).getHost());
         // verify port
-        Assert.assertEquals(expectedPort, brokerHostPort.getInfo().get(0).getPort());
-        Assert.assertEquals(expectedPort, brokerHostPort.getInfo().get(1).getPort());
+        Assert.assertEquals(expectedPort, brokerHostPort.getBrokers().get(0).getPort());
+        Assert.assertEquals(expectedPort, brokerHostPort.getBrokers().get(1).getPort());
     }
 
     @Test
@@ -139,8 +140,8 @@ public class KafkaMetadataServiceTest {
 
     private List<String> getActualBrokerData() {
         try {
-            final KafkaMetadataService.BrokersInfo<String> brokerInfo= kafkaMetadataService.getBrokerInfoFromZk();
-            return brokerInfo.getInfo().stream()
+            final KafkaBrokersInfo<String> brokerInfo= kafkaMetadataService.getBrokerInfoFromZk();
+            return brokerInfo.getBrokers().stream()
                     .sorted(String::compareTo)
                     .collect(Collectors.toList());
         } catch (ZookeeperClientException e) {
@@ -160,9 +161,9 @@ public class KafkaMetadataServiceTest {
 
     private List<String> getActualBrokerIds() {
         try {
-            final List<KafkaMetadataService.BrokersInfo.BrokerId> brokers = kafkaMetadataService.getBrokerIdsFromZk().getInfo();
+            final List<KafkaBrokersInfo.BrokerId> brokers = kafkaMetadataService.getBrokerIdsFromZk().getBrokers();
             return brokers.stream()
-                    .map(KafkaMetadataService.BrokersInfo.BrokerId::getId)
+                    .map(KafkaBrokersInfo.BrokerId::getId)
                     .sorted(String::compareTo)
                     .collect(Collectors.toList());
         } catch (ZookeeperClientException e) {
