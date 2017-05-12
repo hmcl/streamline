@@ -24,6 +24,7 @@ import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfig
 import com.hortonworks.streamline.streams.cluster.service.metadata.KafkaMetadataService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.ZookeeperMetadataService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.common.HostPort;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.KafkaTopics;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -67,7 +68,7 @@ public class KafkaBundleHintProviderTest {
 
         new Expectations() {{
             kafkaMetadataService.getTopicsFromZk();
-            result = new KafkaMetadataService.Topics(topics, securityContext);
+            result = new KafkaTopics(topics, securityContext);
 
             kafkaMetadataService.getKafkaZkConnection();
             result = zkConnection;
@@ -104,7 +105,7 @@ public class KafkaBundleHintProviderTest {
 
         new Expectations() {{
             kafkaMetadataService.getTopicsFromZk();
-            result = new KafkaMetadataService.Topics(topics, securityContext);
+            result = new KafkaTopics(topics, securityContext);
 
             kafkaMetadataService.getKafkaZkConnection();
             result = zkConnection;

@@ -13,11 +13,9 @@
   * See the License for the specific language governing permissions and
   * limitations under the License.
  **/
-package com.hortonworks.streamline.streams.cluster.service.metadata.common;
+package com.hortonworks.streamline.streams.cluster.service.metadata.json;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import com.hortonworks.streamline.streams.security.SecurityUtil;
 
 import org.apache.hadoop.hbase.TableName;
 
@@ -31,23 +29,16 @@ import javax.ws.rs.core.SecurityContext;
  * Wrapper used to show proper JSON formatting
  */
 @JsonPropertyOrder({"tables", "msg" })
-public class Tables {
-    public static final String AUTHRZ_MSG =
-            "Authorization not enforced. Every authenticated user has access to all metadata info";
-
+public class Tables extends Metadata {
     private List<String> tables;
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    private String msg;
 
     public Tables(List<String> tables) {
         this(tables, null);
     }
 
     public Tables(List<String> tables, SecurityContext securityContext) {
+        super(securityContext);
         this.tables = tables;
-        if (SecurityUtil.isKerberosAuthenticated(securityContext)) {
-            msg = Tables.AUTHRZ_MSG;
-        }
     }
 
     public static Tables newInstance(TableName[] tableNames) {
@@ -71,10 +62,6 @@ public class Tables {
 
     public List<String> getTables() {
         return tables;
-    }
-
-    public String getMsg() {
-        return msg;
     }
 
     @Override

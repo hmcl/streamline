@@ -16,9 +16,6 @@
 package com.hortonworks.streamline.streams.cluster.service.metadata;
 
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.hortonworks.streamline.streams.catalog.Component;
 import com.hortonworks.streamline.streams.catalog.ServiceConfiguration;
 import com.hortonworks.streamline.streams.catalog.exception.ServiceComponentNotFoundException;
@@ -29,8 +26,8 @@ import com.hortonworks.streamline.streams.cluster.discovery.ambari.ComponentProp
 import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
 import com.hortonworks.streamline.streams.cluster.service.EnvironmentService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.common.HostPort;
-import com.hortonworks.streamline.streams.cluster.service.metadata.common.Tables;
-import com.hortonworks.streamline.streams.security.SecurityUtil;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.KafkaBrokersInfo;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.KafkaTopics;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -89,9 +86,9 @@ public class KafkaMetadataService implements AutoCloseable {
         return new KafkaMetadataService(environmentService, zkCli, kafkaZkConnection, securityContext);
     }
 
-    public BrokersInfo<HostPort> getBrokerHostPortFromStreamsJson(Long clusterId) throws ServiceNotFoundException, ServiceComponentNotFoundException {
+    public KafkaBrokersInfo<HostPort> getBrokerHostPortFromStreamsJson(Long clusterId) throws ServiceNotFoundException, ServiceComponentNotFoundException {
         final Component kafkaBrokerComp = getKafkaBrokerComponent(clusterId);
-        return BrokersInfo.hostPort(kafkaBrokerComp.getHosts(), kafkaBrokerComp.getPort(), securityContext);
+        return KafkaBrokersInfo.hostPort(kafkaBrokerComp.getHosts(), kafkaBrokerComp.getPort(), securityContext);
     }
 
     public String getProtocolFromStreamsJson(Long clusterId) throws ServiceNotFoundException, ServiceComponentNotFoundException {
@@ -99,7 +96,7 @@ public class KafkaMetadataService implements AutoCloseable {
         return kafkaBrokerComp.getProtocol();
     }
 
-    public BrokersInfo<String> getBrokerInfoFromZk() throws ZookeeperClientException {
+    public KafkaBrokersInfo<String> getBrokerInfoFromZk() throws ZookeeperClientException {
         final String brokerIdsZkPath = kafkaZkConnection.buildZkRootPath(KAFKA_BROKERS_IDS_ZK_RELATIVE_PATH);
         final List<String> brokerIds = zkCli.getChildren(brokerIdsZkPath);
         List<String> brokerInfo = null;
@@ -111,17 +108,17 @@ public class KafkaMetadataService implements AutoCloseable {
                 brokerInfo.add(new String(bytes));
             }
         }
-        return BrokersInfo.fromZk(brokerInfo, securityContext);
+        return KafkaBrokersInfo.fromZk(brokerInfo, securityContext);
     }
 
-    public BrokersInfo<BrokersInfo.BrokerId> getBrokerIdsFromZk() throws ZookeeperClientException {
+    public KafkaBrokersInfo<KafkaBrokersInfo.BrokerId> getBrokerIdsFromZk() throws ZookeeperClientException {
         final List<String> brokerIds = zkCli.getChildren(kafkaZkConnection.buildZkRootPath(KAFKA_BROKERS_IDS_ZK_RELATIVE_PATH));
-        return BrokersInfo.brokerIds(brokerIds, securityContext);
+        return KafkaBrokersInfo.brokerIds(brokerIds, securityContext);
     }
 
-    public Topics getTopicsFromZk() throws ZookeeperClientException {
+    public KafkaTopics getTopicsFromZk() throws ZookeeperClientException {
         final List<String> topics = zkCli.getChildren(kafkaZkConnection.buildZkRootPath(KAFKA_TOPICS_ZK_RELATIVE_PATH));
-        return topics == null ? new Topics(Collections.<String>emptyList(), securityContext) : new Topics(topics, securityContext);
+        return topics == null ? new KafkaTopics(Collections.<String>emptyList(), securityContext) : new KafkaTopics(topics, securityContext);
     }
 
     @Override
@@ -162,104 +159,6 @@ public class KafkaMetadataService implements AutoCloseable {
             throw new ServiceNotFoundException(clusterId, ServiceConfigurations.KAFKA.name());
         }
         return serviceId;
-    }
-
-    /**
-     * Wrapper used to show proper JSON formatting {@code { "brokers" : [ { "host" : "H1", "port" : 23 }, { "host" : "H2", "port"
-     * : 23 },{ "host" : "H3", "port" : 23 } ] }
-     *
-     * { "brokers" : [ { "id" : "1" }, { "id" : "2" }, { "id" : "3" } ] } }
-     */
-    @JsonPropertyOrder({"brokers", "msg" })
-    public static class BrokersInfo<T> {
-        private final List<T> brokers;
-        @JsonInclude(JsonInclude.Include.NON_NULL)
-        private String msg;
-
-        public BrokersInfo(List<T> brokers) {
-            this(brokers, null);
-        }
-
-        public BrokersInfo(List<T> brokers, SecurityContext securityContext) {
-            this.brokers = brokers;
-            if (SecurityUtil.isKerberosAuthenticated(securityContext)) {
-                msg = Tables.AUTHRZ_MSG;
-            }
-        }
-
-        public static BrokersInfo<HostPort> hostPort(List<String> hosts, Integer port, SecurityContext securityContext) {
-            List<HostPort> hostsPorts = Collections.emptyList();
-            if (hosts != null) {
-                hostsPorts = new ArrayList<>(hosts.size());
-                for (String host : hosts) {
-                    hostsPorts.add(new HostPort(host, port));
-                }
-            }
-            return new BrokersInfo<>(hostsPorts, securityContext);
-        }
-
-        public static BrokersInfo<BrokerId> brokerIds(List<String> brokerIds, SecurityContext securityContext) {
-            List<BrokerId> brokerIdsType = Collections.emptyList();
-            if (brokerIds != null) {
-                brokerIdsType = new ArrayList<>(brokerIds.size());
-                for (String brokerId : brokerIds) {
-                    brokerIdsType.add(new BrokerId(brokerId));
-                }
-            }
-            return new BrokersInfo<>(brokerIdsType, securityContext);
-        }
-
-        public static BrokersInfo<String> fromZk(List<String> brokerInfo, SecurityContext securityContext) {
-            return brokerInfo == null
-                    ? new BrokersInfo<>(Collections.<String>emptyList(), securityContext)
-                    : new BrokersInfo<>(brokerInfo, securityContext);
-        }
-
-        public List<T> getInfo() {
-            return brokers;
-        }
-
-        public String getMsg() {
-            return msg;
-        }
-
-        public static class BrokerId {
-            final String id;
-
-            public BrokerId(String id) {
-                this.id = id;
-            }
-
-            public String getId() {
-                return id;
-            }
-        }
-    }
-
-    /**
-     * Wrapper used to show proper JSON formatting
-     */
-    @JsonPropertyOrder({"topics", "msg" })
-    public static class Topics {
-        final List<String> topics;
-        @JsonInclude(JsonInclude.Include.NON_NULL)
-        private String msg;
-
-        public Topics(List<String> topics, SecurityContext securityContext) {
-            this.topics = topics;
-            if (SecurityUtil.isKerberosAuthenticated(securityContext)) {
-                msg = Tables.AUTHRZ_MSG;
-            }
-        }
-
-        @JsonProperty("topics")
-        public List<String> list() {
-            return topics;
-        }
-
-        public String getMsg() {
-            return msg;
-        }
     }
 
     /**

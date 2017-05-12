@@ -17,9 +17,6 @@ package com.hortonworks.streamline.streams.cluster.service.metadata;
 
 import com.google.common.collect.Lists;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.hortonworks.streamline.common.function.SupplierException;
 import com.hortonworks.streamline.streams.catalog.exception.EntityNotFoundException;
 import com.hortonworks.streamline.streams.catalog.exception.ServiceConfigurationNotFoundException;
@@ -27,7 +24,8 @@ import com.hortonworks.streamline.streams.catalog.exception.ServiceNotFoundExcep
 import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
 import com.hortonworks.streamline.streams.cluster.service.EnvironmentService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.common.OverrideHadoopConfiguration;
-import com.hortonworks.streamline.streams.cluster.service.metadata.common.Tables;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.HiveDatabases;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Tables;
 import com.hortonworks.streamline.streams.security.SecurityUtil;
 
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -44,7 +42,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.security.PrivilegedActionException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -156,8 +153,8 @@ public class HiveMetadataService implements AutoCloseable {
     /**
      * @return The names of all databases in the MetaStore.
      */
-    public Databases getHiveDatabases() throws MetaException, PrivilegedActionException {
-        final Databases databases = Databases.newInstance(executeSecure(metaStoreClient::getAllDatabases), securityContext);
+    public HiveDatabases getHiveDatabases() throws MetaException, PrivilegedActionException {
+        final HiveDatabases databases = HiveDatabases.newInstance(executeSecure(metaStoreClient::getAllDatabases), securityContext);
         LOG.debug("Hive databases {}", databases.list());
         return databases;
     }
@@ -232,43 +229,6 @@ public class HiveMetadataService implements AutoCloseable {
      */
     public HiveConf getHiveConfCopy() {
         return hiveConf == null ? null : new HiveConf(hiveConf);
-    }
-
-    /**
-     * Wrapper used to show proper JSON formatting
-     */
-    @JsonPropertyOrder({"databases", "msg" })
-    public static class Databases {
-        private List<String> databases;
-        @JsonInclude(JsonInclude.Include.NON_NULL)
-        private String msg;
-
-        public Databases(List<String> databases, SecurityContext securityContext) {
-            this.databases = databases;
-            if (SecurityUtil.isKerberosAuthenticated(securityContext)) {
-                msg = Tables.AUTHRZ_MSG;
-            }
-        }
-
-        public static Databases newInstance(List<String> databases, SecurityContext securityContext) {
-            return databases == null ? new Databases(Collections.emptyList(), securityContext) : new Databases(databases, securityContext);
-        }
-
-        @JsonProperty("databases")
-        public List<String> list() {
-            return databases;
-        }
-
-        public String getMsg() {
-            return msg;
-        }
-
-        @Override
-        public String toString() {
-            return "{" +
-                    "databases=" + databases +
-                    '}';
-        }
     }
 
     @Override
