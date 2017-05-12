@@ -19,6 +19,7 @@ import com.google.common.collect.Lists;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.hortonworks.streamline.common.function.SupplierException;
 import com.hortonworks.streamline.streams.catalog.exception.EntityNotFoundException;
 import com.hortonworks.streamline.streams.catalog.exception.ServiceConfigurationNotFoundException;
@@ -147,7 +148,7 @@ public class HiveMetadataService implements AutoCloseable {
      * @return The table names for the database specified in the parameter
      */
     public Tables getHiveTables(String dbName) throws MetaException, PrivilegedActionException {
-        final Tables tables = Tables.newInstance(executeSecure(() -> metaStoreClient.getAllTables(dbName)), null);
+        final Tables tables = Tables.newInstance(executeSecure(() -> metaStoreClient.getAllTables(dbName)), securityContext);
         LOG.debug("Hive database [{}] has tables {}", dbName, tables.getTables());
         return tables;
     }
@@ -236,6 +237,7 @@ public class HiveMetadataService implements AutoCloseable {
     /**
      * Wrapper used to show proper JSON formatting
      */
+    @JsonPropertyOrder({"databases", "msg" })
     public static class Databases {
         private List<String> databases;
         @JsonInclude(JsonInclude.Include.NON_NULL)

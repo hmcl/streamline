@@ -18,6 +18,7 @@ package com.hortonworks.streamline.streams.cluster.service.metadata;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.hortonworks.streamline.streams.catalog.Component;
 import com.hortonworks.streamline.streams.catalog.ServiceConfiguration;
 import com.hortonworks.streamline.streams.catalog.exception.ServiceComponentNotFoundException;
@@ -120,7 +121,7 @@ public class KafkaMetadataService implements AutoCloseable {
 
     public Topics getTopicsFromZk() throws ZookeeperClientException {
         final List<String> topics = zkCli.getChildren(kafkaZkConnection.buildZkRootPath(KAFKA_TOPICS_ZK_RELATIVE_PATH));
-        return topics == null ? new Topics(Collections.<String>emptyList()) : new Topics(topics);
+        return topics == null ? new Topics(Collections.<String>emptyList(), securityContext) : new Topics(topics, securityContext);
     }
 
     @Override
@@ -169,7 +170,7 @@ public class KafkaMetadataService implements AutoCloseable {
      *
      * { "brokers" : [ { "id" : "1" }, { "id" : "2" }, { "id" : "3" } ] } }
      */
-
+    @JsonPropertyOrder({"brokers", "msg" })
     public static class BrokersInfo<T> {
         private final List<T> brokers;
         @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -238,16 +239,26 @@ public class KafkaMetadataService implements AutoCloseable {
     /**
      * Wrapper used to show proper JSON formatting
      */
+    @JsonPropertyOrder({"topics", "msg" })
     public static class Topics {
         final List<String> topics;
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        private String msg;
 
-        public Topics(List<String> topics) {
+        public Topics(List<String> topics, SecurityContext securityContext) {
             this.topics = topics;
+            if (SecurityUtil.isKerberosAuthenticated(securityContext)) {
+                msg = Tables.AUTHRZ_MSG;
+            }
         }
 
         @JsonProperty("topics")
         public List<String> list() {
             return topics;
+        }
+
+        public String getMsg() {
+            return msg;
         }
     }
 
@@ -326,5 +337,4 @@ public class KafkaMetadataService implements AutoCloseable {
             return chRoot;
         }
     }
-
 }

@@ -45,10 +45,10 @@ import mockit.integration.junit4.JMockit;
 
 import static com.hortonworks.streamline.streams.cluster.service.metadata.KafkaMetadataService.KAFKA_BROKERS_IDS_ZK_RELATIVE_PATH;
 import static com.hortonworks.streamline.streams.cluster.service.metadata.KafkaMetadataService.KAFKA_TOPICS_ZK_RELATIVE_PATH;
+import static com.hortonworks.streamline.streams.security.authentication.StreamlineSecurityContext.AUTHENTICATION_SCHEME_NOT_KERBEROS;
 
 @RunWith(JMockit.class)
 public class KafkaMetadataServiceTest {
-    private static final String AUTHENTICATION_SCHEME_NOT_KERBEROS = "NOT_KERBEROS";
     private static final Logger LOG = LoggerFactory.getLogger(KafkaMetadataServiceTest.class);
 
     private static final String CHROOT = "/chroot";

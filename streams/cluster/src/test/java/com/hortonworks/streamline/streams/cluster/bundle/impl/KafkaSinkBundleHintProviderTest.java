@@ -66,7 +66,7 @@ public class KafkaSinkBundleHintProviderTest {
 
         new Expectations() {{
             kafkaMetadataService.getTopicsFromZk();
-            result = new KafkaMetadataService.Topics(topics);
+            result = new KafkaMetadataService.Topics(topics, securityContext);
 
             kafkaMetadataService.getBrokerHostPortFromStreamsJson(1L);
             result = brokersInfo;

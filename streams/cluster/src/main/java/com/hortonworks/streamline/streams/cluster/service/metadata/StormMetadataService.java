@@ -17,6 +17,7 @@ package com.hortonworks.streamline.streams.cluster.service.metadata;
 
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.hortonworks.streamline.common.JsonClientUtil;
 import com.hortonworks.streamline.streams.catalog.Component;
 import com.hortonworks.streamline.streams.catalog.Service;
@@ -208,6 +209,7 @@ public class StormMetadataService {
      *  }
      * }
      * */
+    @JsonPropertyOrder({"topologies", "msg" })
     public static class Topologies {
         private List<String> topologies;
         @JsonInclude(JsonInclude.Include.NON_NULL)

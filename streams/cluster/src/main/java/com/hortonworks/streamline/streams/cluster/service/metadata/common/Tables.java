@@ -16,6 +16,7 @@
 package com.hortonworks.streamline.streams.cluster.service.metadata.common;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.hortonworks.streamline.streams.security.SecurityUtil;
 
 import org.apache.hadoop.hbase.TableName;
@@ -29,6 +30,7 @@ import javax.ws.rs.core.SecurityContext;
 /**
  * Wrapper used to show proper JSON formatting
  */
+@JsonPropertyOrder({"tables", "msg" })
 public class Tables {
     public static final String AUTHRZ_MSG =
             "Authorization not enforced. Every authenticated user has access to all metadata info";
