@@ -22,8 +22,11 @@ import com.hortonworks.streamline.streams.catalog.service.StreamCatalogService;
 import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
 import com.hortonworks.streamline.streams.cluster.service.metadata.KafkaMetadataService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.common.HostPort;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Authentication;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Authorizer;
 import com.hortonworks.streamline.streams.cluster.service.metadata.json.KafkaBrokersInfo;
 import com.hortonworks.streamline.streams.cluster.service.metadata.json.KafkaTopics;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Security;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -54,6 +57,15 @@ public class KafkaSinkBundleHintProviderTest {
     @Injectable
     private SecurityContext securityContext;
 
+    @Mocked
+    private Authentication authentication;
+
+    @Mocked
+    private Authorizer authorizer;
+
+    @Mocked
+    private Security security;
+
     @Test
     public void getHintsOnCluster() throws Exception {
         new Expectations() {{
@@ -68,7 +80,7 @@ public class KafkaSinkBundleHintProviderTest {
 
         new Expectations() {{
             kafkaMetadataService.getTopicsFromZk();
-            result = new KafkaTopics(topics, securityContext);
+            result = new KafkaTopics(topics, security);
 
             kafkaMetadataService.getBrokerHostPortFromStreamsJson(1L);
             result = brokersInfo;

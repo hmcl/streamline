@@ -178,7 +178,7 @@ public class KafkaMetadataServiceTest {
                 componentZkLeaves,
                 this::getActualTopics,
                 p -> Assert.assertEquals(componentZkLeaves, p),
-                null, false);
+                null, true);
     }
 
     private List<String> getActualTopics() {

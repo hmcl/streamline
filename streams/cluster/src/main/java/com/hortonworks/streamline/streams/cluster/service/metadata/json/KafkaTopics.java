@@ -10,17 +10,34 @@ import javax.ws.rs.core.SecurityContext;
 /**
  * Wrapper used to show proper JSON formatting
  */
-@JsonPropertyOrder({"topics"})
-public class KafkaTopics extends Metadata {
-    final List<String> topics;
+@JsonPropertyOrder({"topics", "security"})
+public class KafkaTopics {
+    private final List<String> topics;
+    private final Security security;
 
-    public KafkaTopics(List<String> topics, SecurityContext securityContext) {
-        super(securityContext);
+    public KafkaTopics(List<String> topics, Security security) {
         this.topics = topics;
+        this.security = security;
+    }
+
+    public KafkaTopics newInstance(List<String> topics, SecurityContext securityContext) {
+        return new KafkaTopics(topics, new Security(securityContext, new Authorizer(false)));
     }
 
     @JsonProperty("topics")
     public List<String> list() {
         return topics;
+    }
+
+    public Security getSecurity() {
+        return security;
+    }
+
+    @Override
+    public String toString() {
+        return "KafkaTopics{" +
+                "topics=" + topics +
+                ", security=" + security +
+                '}';
     }
 }

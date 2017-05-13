@@ -136,7 +136,7 @@ public class HBaseMetadataService implements AutoCloseable {
     public Tables getHBaseTables() throws Exception {
         final TableName[] tableNames = executeSecure(() -> hBaseAdmin.listTableNames());
         LOG.debug("HBase tables {}", Arrays.toString(tableNames));
-        return Tables.newInstance(tableNames);
+        return Tables.newInstance(tableNames, securityContext, true);
     }
 
     /**
@@ -146,14 +146,15 @@ public class HBaseMetadataService implements AutoCloseable {
     public Tables getHBaseTables(final String namespace) throws IOException, PrivilegedActionException, InterruptedException {
         final TableName[] tableNames = executeSecure(() -> hBaseAdmin.listTableNamesByNamespace(namespace));
         LOG.debug("HBase namespace [{}] has tables {}", namespace, Arrays.toString(tableNames));
-        return Tables.newInstance(tableNames);
+        return Tables.newInstance(tableNames, securityContext, true);
     }
 
     /**
      * @return All namespaces
      */
     public HBaseNamespaces getHBaseNamespaces() throws IOException, PrivilegedActionException, InterruptedException {
-        final HBaseNamespaces namespaces = HBaseNamespaces.newInstance(executeSecure(() -> hBaseAdmin.listNamespaceDescriptors()));
+        final HBaseNamespaces namespaces = HBaseNamespaces.newInstance(
+                executeSecure(() -> hBaseAdmin.listNamespaceDescriptors()), securityContext, true);
         LOG.debug("HBase namespaces {}", namespaces);
         return namespaces;
     }

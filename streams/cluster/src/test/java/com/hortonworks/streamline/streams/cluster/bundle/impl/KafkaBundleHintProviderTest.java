@@ -24,7 +24,10 @@ import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfig
 import com.hortonworks.streamline.streams.cluster.service.metadata.KafkaMetadataService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.ZookeeperMetadataService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.common.HostPort;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Authentication;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Authorizer;
 import com.hortonworks.streamline.streams.cluster.service.metadata.json.KafkaTopics;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Security;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -32,8 +35,6 @@ import org.junit.runner.RunWith;
 
 import java.util.List;
 import java.util.Map;
-
-import javax.ws.rs.core.SecurityContext;
 
 import mockit.Expectations;
 import mockit.Mocked;
@@ -55,7 +56,13 @@ public class KafkaBundleHintProviderTest {
     private ZookeeperMetadataService zookeeperMetadataService;
 
     @Mocked
-    private SecurityContext securityContext;
+    private Authentication authentication;
+
+    @Mocked
+    private Authorizer authorizer;
+
+    @Mocked
+    private Security security;
 
     @Test
     public void getHintsOnCluster() throws Exception {
@@ -68,7 +75,7 @@ public class KafkaBundleHintProviderTest {
 
         new Expectations() {{
             kafkaMetadataService.getTopicsFromZk();
-            result = new KafkaTopics(topics, securityContext);
+            result = new KafkaTopics(topics, security);
 
             kafkaMetadataService.getKafkaZkConnection();
             result = zkConnection;
@@ -105,7 +112,7 @@ public class KafkaBundleHintProviderTest {
 
         new Expectations() {{
             kafkaMetadataService.getTopicsFromZk();
-            result = new KafkaTopics(topics, securityContext);
+            result = new KafkaTopics(topics, security);
 
             kafkaMetadataService.getKafkaZkConnection();
             result = zkConnection;

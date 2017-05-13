@@ -11,22 +11,29 @@ import javax.ws.rs.core.SecurityContext;
 /**
  * Wrapper used to show proper JSON formatting
  */
-@JsonPropertyOrder({"databases"})
-public class HiveDatabases extends Metadata {
-    private List<String> databases;
+@JsonPropertyOrder({"databases", "security"})
+public class HiveDatabases {
+    private final List<String> databases;
+    private final Security security;
 
-    public HiveDatabases(List<String> databases, SecurityContext securityContext) {
-        super(securityContext);
+
+    public HiveDatabases(List<String> databases, Security security) {
         this.databases = databases;
+        this.security = security;
     }
 
     public static HiveDatabases newInstance(List<String> databases, SecurityContext securityContext) {
-        return databases == null ? new HiveDatabases(Collections.emptyList(), securityContext) : new HiveDatabases(databases, securityContext);
+        final Security security = new Security(securityContext, new Authorizer(false));
+        return databases == null ? new HiveDatabases(Collections.emptyList(), security) : new HiveDatabases(databases, security);
     }
 
     @JsonProperty("databases")
     public List<String> list() {
         return databases;
+    }
+
+    public Security getSecurity() {
+        return security;
     }
 
     @Override

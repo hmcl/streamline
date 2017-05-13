@@ -28,24 +28,26 @@ import javax.ws.rs.core.SecurityContext;
 /**
  * Wrapper used to show proper JSON formatting
  */
-@JsonPropertyOrder({"tables", "msg" })
-public class Tables extends Metadata {
+@JsonPropertyOrder({"tables", "security" })
+public class Tables {
     private List<String> tables;
+    private Security security;
+
 
     public Tables(List<String> tables) {
         this(tables, null);
     }
 
-    public Tables(List<String> tables, SecurityContext securityContext) {
-        super(securityContext);
+    public Tables(List<String> tables, Security security) {
         this.tables = tables;
+        this.security = security;
     }
 
-    public static Tables newInstance(TableName[] tableNames) {
-        return newInstance(tableNames, null);
+    public static Tables newInstance(List<String> tables, SecurityContext securityContext, boolean isAuthorizerInvoked) {
+        return new Tables(tables, new Security(securityContext, new Authorizer(isAuthorizerInvoked)));
     }
 
-    public static Tables newInstance(TableName[] tableNames, SecurityContext securityContext) {
+    public static Tables newInstance(TableName[] tableNames, SecurityContext securityContext, boolean isAuthorizerInvoked) {
         List<String> fqTableNames = Collections.emptyList();
         if (tableNames != null) {
             fqTableNames = new ArrayList<>(tableNames.length);
@@ -53,15 +55,15 @@ public class Tables extends Metadata {
                 fqTableNames.add(tableName.getNameWithNamespaceInclAsString());
             }
         }
-        return new Tables(fqTableNames, securityContext);
-    }
-
-    public static Tables newInstance(List<String> tables, SecurityContext securityContext) {
-        return tables == null ? new Tables(Collections.<String>emptyList(), securityContext) : new Tables(tables, securityContext);
+        return newInstance(fqTableNames, securityContext, isAuthorizerInvoked);
     }
 
     public List<String> getTables() {
         return tables;
+    }
+
+    public Security getSecurity() {
+        return security;
     }
 
     @Override

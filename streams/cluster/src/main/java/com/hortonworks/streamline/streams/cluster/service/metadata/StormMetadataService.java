@@ -25,6 +25,8 @@ import com.hortonworks.streamline.streams.cluster.discovery.ambari.ComponentProp
 import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
 import com.hortonworks.streamline.streams.cluster.service.EnvironmentService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.common.HostPort;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Authorizer;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Security;
 import com.hortonworks.streamline.streams.cluster.service.metadata.json.StormTopologies;
 import com.hortonworks.streamline.streams.security.SecurityUtil;
 
@@ -182,7 +184,7 @@ public class StormMetadataService {
                 }
             }
         }
-        return new StormTopologies(topologies, securityContext);
+        return new StormTopologies(topologies, new Security(securityContext, new Authorizer(false)));
     }
 
     /**

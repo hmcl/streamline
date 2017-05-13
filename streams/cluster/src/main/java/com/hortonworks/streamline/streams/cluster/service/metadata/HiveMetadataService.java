@@ -145,7 +145,7 @@ public class HiveMetadataService implements AutoCloseable {
      * @return The table names for the database specified in the parameter
      */
     public Tables getHiveTables(String dbName) throws MetaException, PrivilegedActionException {
-        final Tables tables = Tables.newInstance(executeSecure(() -> metaStoreClient.getAllTables(dbName)), securityContext);
+        final Tables tables = Tables.newInstance(executeSecure(() -> metaStoreClient.getAllTables(dbName)), securityContext, false);
         LOG.debug("Hive database [{}] has tables {}", dbName, tables.getTables());
         return tables;
     }

@@ -26,8 +26,10 @@ import com.hortonworks.streamline.streams.cluster.discovery.ambari.ComponentProp
 import com.hortonworks.streamline.streams.cluster.discovery.ambari.ServiceConfigurations;
 import com.hortonworks.streamline.streams.cluster.service.EnvironmentService;
 import com.hortonworks.streamline.streams.cluster.service.metadata.common.HostPort;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Authorizer;
 import com.hortonworks.streamline.streams.cluster.service.metadata.json.KafkaBrokersInfo;
 import com.hortonworks.streamline.streams.cluster.service.metadata.json.KafkaTopics;
+import com.hortonworks.streamline.streams.cluster.service.metadata.json.Security;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -117,8 +119,9 @@ public class KafkaMetadataService implements AutoCloseable {
     }
 
     public KafkaTopics getTopicsFromZk() throws ZookeeperClientException {
+        final Security security = new Security(securityContext, new Authorizer(false));
         final List<String> topics = zkCli.getChildren(kafkaZkConnection.buildZkRootPath(KAFKA_TOPICS_ZK_RELATIVE_PATH));
-        return topics == null ? new KafkaTopics(Collections.<String>emptyList(), securityContext) : new KafkaTopics(topics, securityContext);
+        return topics == null ? new KafkaTopics(Collections.<String>emptyList(), security) : new KafkaTopics(topics, security);
     }
 
     @Override
